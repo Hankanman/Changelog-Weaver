@@ -87,7 +87,7 @@ async def write_release_notes(
                 parent_id = parent_link["url"].split("/")[-1]
                 parent_child_groups[parent_id].append(item)
             else:
-                log.warning(f"Work item {item['id']} has no parent")
+                log.info(f"Work item {item['id']} has no parent")
                 parent_child_groups["0"].append(item)
 
         parents = {
@@ -149,6 +149,24 @@ async def write_release_notes(
                         session,
                         summarize_items,
                     )
+
+        # Process work items with no parent (group id '0')
+        if "0" in parent_child_groups:
+            log.info("Processing items with no parent")
+            other_section_header = "Other"
+            section_headers.append(other_section_header)
+            with open(file_md, "a", encoding="utf-8") as file:
+                file.write(md.render(f"## {other_section_header}\n---\n"))
+
+            other_items_group = {"Other": parent_child_groups["0"]}
+            await updateItemGroup(
+                summary_notes,
+                other_items_group,
+                work_item_type_to_icon,
+                file_md,
+                session,
+                summarize_items,
+            )
 
         await finaliseNotes(
             output_html, summary_notes, file_md, file_html, section_headers
