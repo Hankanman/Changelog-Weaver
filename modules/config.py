@@ -52,7 +52,8 @@ MODEL_DATA = [
     {"Name": "gpt-3.5-turbo", "Tokens": 4096},
     {"Name": "gpt-3.5-turbo-16k", "Tokens": 16385},
     {"Name": "gpt-4", "Tokens": 8192},
-    {"Name": "gpt-4-32k", "Tokens": 32768}
+    {"Name": "gpt-4-32k", "Tokens": 32768},
+    {"Name": "gpt-4o", "Tokens": 128000}
 ]
 
 # Prompts

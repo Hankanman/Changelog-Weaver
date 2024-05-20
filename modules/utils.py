@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 from dataclasses import dataclass
 from modules.enums import WorkItemType, LogLevel, WorkItemField, ResponseStatus, APIEndpoint
-from modules.config import DEVOPS_BASE_URL, MODEL_BASE_URL, SUMMARY_PROMPT, SOFTWARE_SUMMARY, GPT_API_KEY, MODEL, MODEL_DATA
+from modules.config import DEVOPS_BASE_URL, MODEL_BASE_URL, SUMMARY_PROMPT, SOFTWARE_SUMMARY, GPT_API_KEY, MODEL, MODEL_DATA, ITEM_PROMPT
 from markdown_it import MarkdownIt
 
 
@@ -278,7 +278,7 @@ async def updateItemGroup(summary_notes_ref: str, grouped_work_items: Dict[str, 
                                         for comment in comments_response.get('comments', [])])
 
             if summarize_items:
-                summary = await summarise(f"{SUMMARY_PROMPT}: {title} {description} {repro} {comments}")
+                summary = await summarise(f"{ITEM_PROMPT}: {title} {description} {repro} {comments}")
                 summary_notes_ref += f"  - {title} | {summary} \n"
                 summary = f" - {summary}"
             else:
