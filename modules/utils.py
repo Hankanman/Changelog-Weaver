@@ -23,7 +23,6 @@ from modules.config import (
     MODEL_DATA,
     ITEM_PROMPT,
 )
-from markdown_it import MarkdownIt
 
 
 @dataclass
@@ -286,12 +285,9 @@ async def updateItemGroup(
         group_icon_url = workItemIcon[work_item_type]["iconUrl"]
         summary_notes_ref += f" - {work_item_type}s: \n"
 
-        md = MarkdownIt()
         with open(file_md, "a", encoding="utf-8") as file:
             file.write(
-                md.render(
-                    f"### <img src='{group_icon_url}' alt='icon' width='12' height='12'> {work_item_type}s\n"
-                )
+                f"### <img src='{group_icon_url}' alt='icon' width='12' height='12'> {work_item_type}s\n"
             )
 
         for child_item in items:
@@ -327,7 +323,7 @@ async def updateItemGroup(
                 summary = ""
 
             with open(file_md, "a", encoding="utf-8") as file:
-                file.write(md.render(f"- [#{id}]({url}) **{title.strip()}**{summary}"))
+                file.write(f"- [#{id}]({url}) **{title.strip()}**{summary}\n")
 
 
 async def finaliseNotes(

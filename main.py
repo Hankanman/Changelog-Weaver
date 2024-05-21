@@ -27,7 +27,6 @@ from modules.utils import (
     updateItemGroup,
     finaliseNotes,
 )
-from markdown_it import MarkdownIt
 
 
 async def write_release_notes(
@@ -49,13 +48,10 @@ async def write_release_notes(
 
     summary_notes = ""
     section_headers = []
-    md = MarkdownIt()
 
     with open(file_md, "w", encoding="utf-8") as file:
         file.write(
-            md.render(
-                f"# Release Notes for {SOLUTION_NAME} version v{RELEASE_VERSION}\n\n## Summary\n\n<NOTESSUMMARY>\n\n## Quick Links\n\n<TABLEOFCONTENTS>"
-            )
+            f"# Release Notes for {SOLUTION_NAME} version v{RELEASE_VERSION}\n\n## Summary\n\n<NOTESSUMMARY>\n\n## Quick Links\n\n<TABLEOFCONTENTS>\n"
         )
 
     section_headers.append(section_header)
@@ -64,7 +60,7 @@ async def write_release_notes(
 
         # Write the section header to the file
         with open(file_md, "a", encoding="utf-8") as file:
-            file.write(md.render(f"## {section_header}\n---\n"))
+            file.write(f"## {section_header}\n---\n")
 
         work_items = await getWorkItems(session, ORG_NAME, PROJECT_NAME, query_id)
 
@@ -128,7 +124,10 @@ async def write_release_notes(
                     log.info(f"No child items found for parent {parent_id}")
 
                 summary_notes += f"- {parent_title}\n"
-                parent_header = f"\n### <img src='{parent_icon_url}' alt='icon' width='20' height='20'> [#{parent_id}]({parent_link}) {parent_title}"
+                parent_header = (
+                    f"\n### <img src='{parent_icon_url}' alt='icon' width='20' height='20'> "
+                    f"[#{parent_id}]({parent_link}) {parent_title}\n"
+                )
 
                 grouped_child_items = defaultdict(list)
                 for item in child_items:
@@ -138,7 +137,7 @@ async def write_release_notes(
 
                 if grouped_child_items:
                     with open(file_md, "a", encoding="utf-8") as file:
-                        file.write(md.render(parent_header))
+                        file.write(parent_header)
                     await updateItemGroup(
                         summary_notes,
                         grouped_child_items,
@@ -154,7 +153,7 @@ async def write_release_notes(
             other_section_header = "Other"
             section_headers.append(other_section_header)
             with open(file_md, "a", encoding="utf-8") as file:
-                file.write(md.render(f"## {other_section_header}\n---\n"))
+                file.write(f"## {other_section_header}\n---\n")
 
             other_items_group = {"Other": parent_child_groups["0"]}
             await updateItemGroup(
