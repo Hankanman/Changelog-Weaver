@@ -1,14 +1,14 @@
 # Function to check if a command exists
-function Command-Exists {
+function Find-Command {
     param (
         [string]$command
     )
     $commandPath = Get-Command $command -ErrorAction SilentlyContinue
-    return $commandPath -ne $null
+    return $null -ne $commandPath
 }
 
 # Check for Python
-if (Command-Exists -command "python") {
+if (Find-Command -command "python") {
     Write-Host "Python is installed."
 } else {
     Write-Host "Python is not installed. Please install Python from https://www.python.org/downloads/"
@@ -16,7 +16,7 @@ if (Command-Exists -command "python") {
 }
 
 # Check for pip
-if (Command-Exists -command "pip") {
+if (Find-Command -command "pip") {
     Write-Host "pip is installed."
 } else {
     Write-Host "pip is not installed. Please install pip from https://pip.pypa.io/en/stable/installation/"
@@ -24,7 +24,7 @@ if (Command-Exists -command "pip") {
 }
 
 # Check for npm
-if (Command-Exists -command "npm") {
+if (Find-Command -command "npm") {
     Write-Host "npm is installed."
 } else {
     Write-Host "npm is not installed. Please install npm from https://www.npmjs.com/get-npm"
