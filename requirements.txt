@@ -1,3 +1,2 @@
 aiohttp
-markdown-it-py
 python-dotenv

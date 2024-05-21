@@ -49,9 +49,10 @@ GPT_API_KEY=
 SOFTWARE_SUMMARY =
 DESIRED_WORK_ITEM_TYPES = Epic,Feature,Other
 OUTPUT_FOLDER = releases
-MODEL=gpt-4
+MODEL=gpt-4o
 MODEL_BASE_URL=https://api.openai.com/v1
 DEVOPS_BASE_URL=https://dev.azure.com
+DEVOPS_API_VERSION=6.0
 "@ | Out-File -FilePath .env -Encoding utf8
 }
 
