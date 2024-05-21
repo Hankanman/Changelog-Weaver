@@ -1,6 +1,6 @@
 # enums.py
 from enum import Enum
-
+from modules.config import DEVOPS_API_VERSION
 
 class WorkItemType(Enum):
     EPIC = "Epic"
@@ -26,6 +26,7 @@ class WorkItemField(Enum):
 class ResponseStatus(Enum):
     SUCCESS = 200
     RATE_LIMIT = 429
+    ERROR = 500
 
 
 class OutputFormat(Enum):
@@ -35,11 +36,19 @@ class OutputFormat(Enum):
 
 class APIEndpoint(Enum):
     WORK_ITEM_TYPES = (
-        "/{org_name}/{project_name}/_apis/wit/workitemtypes?api-version=6.0"
+        "/{org_name}/{project_name}/_apis/wit/workitemtypes?api-version="
+        + DEVOPS_API_VERSION
     )
-    WIQL = "/{org_name}/{project_name}/_apis/wit/wiql/{query_id}?api-version=6.0"
-    WORK_ITEMS = "/{org_name}/{project_name}/_apis/wit/workitems?ids={ids}&$expand=all&api-version=6.0"
+    WIQL = (
+        "/{org_name}/{project_name}/_apis/wit/wiql/{query_id}?api-version="
+        + DEVOPS_API_VERSION
+    )
+    WORK_ITEMS = (
+        "/{org_name}/{project_name}/_apis/wit/workitems?ids={ids}&$expand=all&api-version="
+        + DEVOPS_API_VERSION
+    )
     WORK_ITEM = (
-        "/{org_name}/{project_name}/_apis/wit/workitems/{parent_id}?api-version=6.0"
+        "/{org_name}/{project_name}/_apis/wit/workitems/{parent_id}?api-version="
+        + DEVOPS_API_VERSION
     )
     COMPLETIONS = "/chat/completions"

@@ -18,9 +18,10 @@ GPT_API_KEY=
 SOFTWARE_SUMMARY =
 DESIRED_WORK_ITEM_TYPES = Epic,Feature,Other
 OUTPUT_FOLDER = releases
-MODEL=gpt-4
+MODEL=gpt-4o
 MODEL_BASE_URL=https://api.openai.com/v1
 DEVOPS_BASE_URL=https://dev.azure.com
+DEVOPS_API_VERSION=6.0
 """
 
 # Check if .env file exists, if not, create it with default values
@@ -42,9 +43,12 @@ GPT_API_KEY = os.getenv("GPT_API_KEY")
 MODEL = os.getenv("MODEL")
 MODEL_BASE_URL = os.getenv("MODEL_BASE_URL")
 DEVOPS_BASE_URL = os.getenv("DEVOPS_BASE_URL")
-DESIRED_WORK_ITEM_TYPES = os.getenv("DESIRED_WORK_ITEM_TYPES").split(",")
 OUTPUT_FOLDER = Path(os.getenv("OUTPUT_FOLDER"))
 SOFTWARE_SUMMARY = os.getenv("SOFTWARE_SUMMARY")
+DEVOPS_API_VERSION = os.getenv("DEVOPS_API_VERSION")
+DESIRED_WORK_ITEM_TYPES = os.getenv("DESIRED_WORK_ITEM_TYPES").split(",")
+if "Other" not in DESIRED_WORK_ITEM_TYPES:
+    DESIRED_WORK_ITEM_TYPES.append("Other")
 
 # GPT Model Data
 MODEL_DATA = [

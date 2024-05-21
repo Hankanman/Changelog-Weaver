@@ -60,7 +60,7 @@ async def write_release_notes(
 
         # Write the section header to the file
         with open(file_md, "a", encoding="utf-8") as file:
-            file.write(f"## {section_header}\n---\n")
+            file.write(f"## {section_header}\n")
 
         work_items = await getWorkItems(session, ORG_NAME, PROJECT_NAME, query_id)
 
@@ -82,6 +82,7 @@ async def write_release_notes(
                 parent_child_groups[parent_id].append(item)
             else:
                 log.info(f"Work item {item['id']} has no parent")
+                item["fields"][WorkItemField.PARENT.value] = 0
                 parent_child_groups["0"].append(item)
 
         parents = {
@@ -95,6 +96,23 @@ async def write_release_notes(
             )
             async with session.get(parent_uri) as parent_response:
                 parent_work_items[parent_id] = await parent_response.json()
+
+        # Add a placeholder for items with no parent
+        parent_work_items["0"] = {
+            "id": 0,
+            "fields": {
+                WorkItemField.TITLE.value: "Other",
+                WorkItemField.WORK_ITEM_TYPE.value: "Other",
+                WorkItemField.PARENT.value: 0,
+            },
+            "_links": {
+                "html": {"href": "#"},
+                "workItemIcon": {
+                    "url": "https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_clipboard_issue?color=577275&v=2"
+                },
+            },
+            "url": "#",
+        }
 
         for work_item_type in DESIRED_WORK_ITEM_TYPES:
             log.info(f"Processing {work_item_type}s")
@@ -124,9 +142,13 @@ async def write_release_notes(
                     log.info(f"No child items found for parent {parent_id}")
 
                 summary_notes += f"- {parent_title}\n"
+                if parent_id != "0":
+                    parent_head_link = f"[#{parent_id}]({parent_link}) "
+                else:
+                    parent_head_link = ""
                 parent_header = (
                     f"\n### <img src='{parent_icon_url}' alt='icon' width='20' height='20'> "
-                    f"[#{parent_id}]({parent_link}) {parent_title}\n"
+                    f"{parent_head_link}{parent_title}\n"
                 )
 
                 grouped_child_items = defaultdict(list)
@@ -146,24 +168,6 @@ async def write_release_notes(
                         session,
                         summarize_items,
                     )
-
-        # Process work items with no parent (group id '0')
-        if "0" in parent_child_groups:
-            log.info("Processing items with no parent")
-            other_section_header = "Other"
-            section_headers.append(other_section_header)
-            with open(file_md, "a", encoding="utf-8") as file:
-                file.write(f"## {other_section_header}\n---\n")
-
-            other_items_group = {"Other": parent_child_groups["0"]}
-            await updateItemGroup(
-                summary_notes,
-                other_items_group,
-                work_item_type_to_icon,
-                file_md,
-                session,
-                summarize_items,
-            )
 
         await finaliseNotes(
             output_html, summary_notes, file_md, file_html, section_headers
