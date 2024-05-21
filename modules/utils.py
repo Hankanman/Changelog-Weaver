@@ -7,8 +7,23 @@ import logging
 from pathlib import Path
 from typing import List, Dict, Any
 from dataclasses import dataclass
-from modules.enums import WorkItemType, LogLevel, WorkItemField, ResponseStatus, APIEndpoint
-from modules.config import DEVOPS_BASE_URL, MODEL_BASE_URL, SUMMARY_PROMPT, SOFTWARE_SUMMARY, GPT_API_KEY, MODEL, MODEL_DATA, ITEM_PROMPT
+from modules.enums import (
+    WorkItemType,
+    LogLevel,
+    WorkItemField,
+    ResponseStatus,
+    APIEndpoint,
+)
+from modules.config import (
+    DEVOPS_BASE_URL,
+    MODEL_BASE_URL,
+    SUMMARY_PROMPT,
+    SOFTWARE_SUMMARY,
+    GPT_API_KEY,
+    MODEL,
+    MODEL_DATA,
+    ITEM_PROMPT,
+)
 from markdown_it import MarkdownIt
 
 
@@ -25,6 +40,7 @@ class WorkItem:
         description (str): The description of the work item.
         comments (str): The comments on the work item.
     """
+
     id: int
     url: str
     title: str
@@ -49,6 +65,7 @@ class Config:
         output_folder (Path): The path to the output folder.
         software_summary (str): A summary of the software.
     """
+
     org_name: str
     project_name: str
     pat: str
@@ -70,8 +87,9 @@ def setupLogs(level: LogLevel = LogLevel.INFO):
     Returns:
         None
     """
-    logging.basicConfig(level=level.value,
-                        format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(
+        level=level.value, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
 
 
 def createContents(input_array: List[str]) -> str:
@@ -87,9 +105,9 @@ def createContents(input_array: List[str]) -> str:
     """
     markdown_links = []
     for item in input_array:
-        anchor = re.sub(r'[^\w-]', '', item.replace(' ', '-')).lower()
+        anchor = re.sub(r"[^\w-]", "", item.replace(" ", "-")).lower()
         markdown_links.append(f"- [{item}](#{anchor})\n")
-    return ''.join(markdown_links)
+    return "".join(markdown_links)
 
 
 def cleanString(text: str) -> str:
@@ -102,10 +120,10 @@ def cleanString(text: str) -> str:
     Returns:
         str: The cleaned string with non-alphanumeric characters removed.
     """
-    text = re.sub(r'<img[^>]+>', '', text)
-    text = re.sub(r'!\[[^\]]*\]\([^\)]+\)', '', text)
-    text = re.sub(r'data:image\/[^;]+;base64,[^\s"]+', '', text)
-    return re.sub(r'[^a-zA-Z0-9 ]', '', text)
+    text = re.sub(r"<img[^>]+>", "", text)
+    text = re.sub(r"!\[[^\]]*\]\([^\)]+\)", "", text)
+    text = re.sub(r'data:image\/[^;]+;base64,[^\s"]+', "", text)
+    return re.sub(r"[^a-zA-Z0-9 ]", "", text)
 
 
 def countTokens(text: str) -> int:
@@ -118,8 +136,8 @@ def countTokens(text: str) -> int:
     Returns:
     int: The total count of tokens in the given text.
     """
-    word_count = len(re.findall(r'\b\w+\b', text))
-    char_count = len(re.sub(r'\s', '', text))
+    word_count = len(re.findall(r"\b\w+\b", text))
+    char_count = len(re.sub(r"\s", "", text))
     return word_count + char_count
 
 
@@ -136,9 +154,10 @@ async def summarise(prompt: str):
     model_objects = {model["Name"]: model for model in MODEL_DATA}
     model_object = model_objects.get(MODEL)
     token_count = countTokens(prompt)
-    if (model_object and token_count > model_object['Tokens']):
+    if model_object and token_count > model_object["Tokens"]:
         logging.warning(
-            f"The prompt contains too many tokens for the selected model {token_count}/{model_object['Tokens']}. Please reduce the size of the prompt.")
+            f"The prompt contains too many tokens for the selected model {token_count}/{model_object['Tokens']}. Please reduce the size of the prompt."
+        )
         return "Prompt too large"
 
     retry_count = 0
@@ -146,25 +165,23 @@ async def summarise(prompt: str):
     max_retries = 6
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {GPT_API_KEY}"
+        "Authorization": f"Bearer {GPT_API_KEY}",
     }
-    payload = {
-        "model": MODEL,
-        "messages": [{"role": "user", "content": prompt}]
-    }
+    payload = {"model": MODEL, "messages": [{"role": "user", "content": prompt}]}
 
     async with aiohttp.ClientSession(headers=headers) as session:
         while retry_count <= max_retries:
             try:
-                async with session.post(MODEL_BASE_URL + APIEndpoint.COMPLETIONS.value, json=payload) as response:
+                async with session.post(
+                    MODEL_BASE_URL + APIEndpoint.COMPLETIONS.value, json=payload
+                ) as response:
                     response.raise_for_status()
                     result = await response.json()
-                    return result['choices'][0]['message']['content']
+                    return result["choices"][0]["message"]["content"]
             except aiohttp.ClientResponseError as e:
                 if e.status == ResponseStatus.RATE_LIMIT.value:
-                    delay = initial_delay * (2 ** retry_count)
-                    logging.warning(
-                        f"Rate limit hit, retrying in {delay} seconds...")
+                    delay = initial_delay * (2**retry_count)
+                    logging.warning(f"Rate limit hit, retrying in {delay} seconds...")
                     await asyncio.sleep(delay)
                     retry_count += 1
                 else:
@@ -172,7 +189,9 @@ async def summarise(prompt: str):
                     raise e
 
 
-async def getWorkItemIcons(session: aiohttp.ClientSession, org_name: str, project_name: str) -> Dict[str, Any]:
+async def getWorkItemIcons(
+    session: aiohttp.ClientSession, org_name: str, project_name: str
+) -> Dict[str, Any]:
     """
     Fetches work item icons from Azure DevOps.
 
@@ -185,30 +204,37 @@ async def getWorkItemIcons(session: aiohttp.ClientSession, org_name: str, projec
         Dict[str, Any]: A dictionary containing the work item icons.
 
     """
-    uri = DEVOPS_BASE_URL + \
-        APIEndpoint.WORK_ITEM_TYPES.value.format(
-            org_name=org_name, project_name=project_name)
+    uri = DEVOPS_BASE_URL + APIEndpoint.WORK_ITEM_TYPES.value.format(
+        org_name=org_name, project_name=project_name
+    )
     async with session.get(uri) as response:
         response_json = await response.json()
-        icons = [{'name': item['name'], 'iconUrl': item['icon']['url']}
-                 for item in response_json['value']]
+        icons = [
+            {"name": item["name"], "iconUrl": item["icon"]["url"]}
+            for item in response_json["value"]
+        ]
         workItemIcon = {}
         for icon in icons:
-            color_match = re.search(r'color=([a-zA-Z0-9]+)', icon['iconUrl'])
+            color_match = re.search(r"color=([a-zA-Z0-9]+)", icon["iconUrl"])
             color = color_match.group(1) if color_match else None
-            workItemIcon[icon['name']] = {
-                'iconUrl': icon['iconUrl'], 'color': color}
+            workItemIcon[icon["name"]] = {"iconUrl": icon["iconUrl"], "color": color}
 
         # Ensure "Other" work item type has a default icon
-        workItemIcon[WorkItemType.OTHER.value] = workItemIcon.get(WorkItemType.OTHER.value, {
-                                                                  'iconUrl': 'default_icon_url', 'color': 'gray', 'consoleColor': 'Gray'})
+        workItemIcon[WorkItemType.OTHER.value] = workItemIcon.get(
+            WorkItemType.OTHER.value,
+            {"iconUrl": "default_icon_url", "color": "gray", "consoleColor": "Gray"},
+        )
 
-        with open(Path('./Releases/workItemTypeToIcon.json'), 'w', encoding='utf-8') as file:
+        with open(
+            Path("./Releases/workItemTypeToIcon.json"), "w", encoding="utf-8"
+        ) as file:
             json.dump(workItemIcon, file)
         return workItemIcon
 
 
-async def getWorkItems(session: aiohttp.ClientSession, org_name: str, project_name: str, query_id: str) -> List[Dict[str, Any]]:
+async def getWorkItems(
+    session: aiohttp.ClientSession, org_name: str, project_name: str, query_id: str
+) -> List[Dict[str, Any]]:
     """
     Fetches work items from Azure DevOps based on a query.
 
@@ -222,19 +248,28 @@ async def getWorkItems(session: aiohttp.ClientSession, org_name: str, project_na
         List[Dict[str, Any]]: A list of work items fetched from Azure DevOps.
     """
     uri = DEVOPS_BASE_URL + APIEndpoint.WIQL.value.format(
-        org_name=org_name, project_name=project_name, query_id=query_id)
+        org_name=org_name, project_name=project_name, query_id=query_id
+    )
     async with session.get(uri) as response:
         query_response = await response.json()
-        ids = ",".join(str(item['id']) for item in query_response['workItems'])
+        ids = ",".join(str(item["id"]) for item in query_response["workItems"])
 
     uri = DEVOPS_BASE_URL + APIEndpoint.WORK_ITEMS.value.format(
-        org_name=org_name, project_name=project_name, ids=ids)
+        org_name=org_name, project_name=project_name, ids=ids
+    )
     async with session.get(uri) as response:
         work_items_response = await response.json()
-        return work_items_response['value']
+        return work_items_response["value"]
 
 
-async def updateItemGroup(summary_notes_ref: str, grouped_work_items: Dict[str, List[Dict[str, Any]]], workItemIcon: Dict[str, Any], file_md: Path, session: aiohttp.ClientSession, summarize_items: bool) -> None:
+async def updateItemGroup(
+    summary_notes_ref: str,
+    grouped_work_items: Dict[str, List[Dict[str, Any]]],
+    workItemIcon: Dict[str, Any],
+    file_md: Path,
+    session: aiohttp.ClientSession,
+    summarize_items: bool,
+) -> None:
     """
     Updates the release notes with details of grouped work items.
 
@@ -251,45 +286,60 @@ async def updateItemGroup(summary_notes_ref: str, grouped_work_items: Dict[str, 
     """
     for work_item_type, items in grouped_work_items.items():
         logging.info(f" Writing notes for {work_item_type}s")
-        group_icon_url = workItemIcon[work_item_type]['iconUrl']
+        group_icon_url = workItemIcon[work_item_type]["iconUrl"]
         summary_notes_ref += f" - {work_item_type}s: \n"
 
         md = MarkdownIt()
-        with open(file_md, 'a', encoding='utf-8') as file:
-            file.write(md.render(
-                f"### <img src='{group_icon_url}' alt='icon' width='12' height='12'> {work_item_type}s\n"))
+        with open(file_md, "a", encoding="utf-8") as file:
+            file.write(
+                md.render(
+                    f"### <img src='{group_icon_url}' alt='icon' width='12' height='12'> {work_item_type}s\n"
+                )
+            )
 
         for child_item in items:
-            id = child_item['id']
-            url = child_item['_links']['html']['href']
-            title = cleanString(
-                child_item['fields'][WorkItemField.TITLE.value])
-            repro = cleanString(child_item['fields'].get(
-                WorkItemField.REPRO_STEPS.value, ''))
-            description = cleanString(child_item['fields'].get(
-                WorkItemField.DESCRIPTION.value, ''))
+            id = child_item["id"]
+            url = child_item["_links"]["html"]["href"]
+            title = cleanString(child_item["fields"][WorkItemField.TITLE.value])
+            repro = cleanString(
+                child_item["fields"].get(WorkItemField.REPRO_STEPS.value, "")
+            )
+            description = cleanString(
+                child_item["fields"].get(WorkItemField.DESCRIPTION.value, "")
+            )
             comments = ""
 
-            if '_links' in child_item and 'workItemComments' in child_item['_links']:
-                comment_link = child_item['_links']['workItemComments']['href']
+            if "_links" in child_item and "workItemComments" in child_item["_links"]:
+                comment_link = child_item["_links"]["workItemComments"]["href"]
                 async with session.get(comment_link) as comment_response:
                     comments_response = await comment_response.json()
-                    comments = ' '.join([cleanString(comment['text'])
-                                        for comment in comments_response.get('comments', [])])
+                    comments = " ".join(
+                        [
+                            cleanString(comment["text"])
+                            for comment in comments_response.get("comments", [])
+                        ]
+                    )
 
             if summarize_items:
-                summary = await summarise(f"{ITEM_PROMPT}: {title} {description} {repro} {comments}")
+                summary = await summarise(
+                    f"{ITEM_PROMPT}: {title} {description} {repro} {comments}"
+                )
                 summary_notes_ref += f"  - {title} | {summary} \n"
                 summary = f" - {summary}"
             else:
                 summary = ""
 
-            with open(file_md, 'a', encoding='utf-8') as file:
-                file.write(
-                    md.render(f"- [#{id}]({url}) **{title.strip()}**{summary}"))
+            with open(file_md, "a", encoding="utf-8") as file:
+                file.write(md.render(f"- [#{id}]({url}) **{title.strip()}**{summary}"))
 
 
-async def finaliseNotes(html: bool, summary_notes: str, file_md: Path, file_html: Path, section_headers: List[str]) -> None:
+async def finaliseNotes(
+    html: bool,
+    summary_notes: str,
+    file_md: Path,
+    file_html: Path,
+    section_headers: List[str],
+) -> None:
     """
     Finalizes the release notes by adding the summary and table of contents.
 
@@ -304,8 +354,10 @@ async def finaliseNotes(html: bool, summary_notes: str, file_md: Path, file_html
         None
     """
     logging.info("Writing final summary and table of contents...")
-    final_summary = await summarise(f"{SUMMARY_PROMPT}{SOFTWARE_SUMMARY}\nThe following is a summary of the work items completed in this release:\n{summary_notes}\nYour response should be as concise as possible")
-    with open(file_md, 'r', encoding='utf-8') as file:
+    final_summary = await summarise(
+        f"{SUMMARY_PROMPT}{SOFTWARE_SUMMARY}\nThe following is a summary of the work items completed in this release:\n{summary_notes}\nYour response should be as concise as possible"
+    )
+    with open(file_md, "r", encoding="utf-8") as file:
         file_contents = file.read()
 
     file_contents = file_contents.replace("<NOTESSUMMARY>", final_summary)
@@ -315,10 +367,14 @@ async def finaliseNotes(html: bool, summary_notes: str, file_md: Path, file_html
 
     if html:
         async with aiohttp.ClientSession() as session:
-            async with session.post("https://api.github.com/markdown", json={"text": file_contents}, headers={"Content-Type": "application/json"}) as markdown_response:
+            async with session.post(
+                "https://api.github.com/markdown",
+                json={"text": file_contents},
+                headers={"Content-Type": "application/json"},
+            ) as markdown_response:
                 markdown_text = await markdown_response.text()
-                with open(file_html, 'w', encoding='utf-8') as file:
+                with open(file_html, "w", encoding="utf-8") as file:
                     file.write(markdown_text)
 
-    with open(file_md, 'w', encoding='utf-8') as file:
+    with open(file_md, "w", encoding="utf-8") as file:
         file.write(file_contents)
