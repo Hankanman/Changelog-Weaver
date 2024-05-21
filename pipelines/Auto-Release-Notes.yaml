@@ -1,0 +1,70 @@
+# azure-pipelines.yml
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  # Define the environment variables to be used in the script
+  ORG_NAME: 'your-org-name'
+  PROJECT_NAME: 'your-project-name'
+  SOLUTION_NAME: 'your-solution-name'
+  RELEASE_VERSION: 'your-release-version'
+  RELEASE_QUERY: 'your-release-query-id'
+  PAT: '$(pat)'  # Personal Access Token stored as a secret
+  GPT_API_KEY: '$(gptApiKey)'  # GPT API Key stored as a secret
+  SOFTWARE_SUMMARY: 'Your software summary here'
+  DESIRED_WORK_ITEM_TYPES: 'Epic,Feature,Other'
+  OUTPUT_FOLDER: 'releases'
+  GITHUB_REPO_URL: 'https://github.com/your-github-username/your-repo-name.git'
+  GITHUB_TAG: 'main'  # Default to main branch; can be a specific tag or release
+  COMMIT_REPO_PATH: 'https://github.com/your-github-username/your-repo-name.git'  # Repository path to commit release notes
+  COMMIT_BRANCH: 'main'  # Branch to commit release notes to
+
+steps:
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.x'
+    addToPath: true
+
+- script: |
+    git clone --branch $(GITHUB_TAG) $(GITHUB_REPO_URL) script-repo
+  displayName: 'Clone GitHub Repository'
+
+- script: |
+    cd script-repo
+    python -m venv .venv
+    source .venv/bin/activate
+    pip install -r requirements.txt
+  displayName: 'Set up Python environment'
+
+- script: |
+    echo "ORG_NAME=$(ORG_NAME)" >> script-repo/.env
+    echo "PROJECT_NAME=$(PROJECT_NAME)" >> script-repo/.env
+    echo "SOLUTION_NAME=$(SOLUTION_NAME)" >> script-repo/.env
+    echo "RELEASE_VERSION=$(RELEASE_VERSION)" >> script-repo/.env
+    echo "RELEASE_QUERY=$(RELEASE_QUERY)" >> script-repo/.env
+    echo "PAT=$(PAT)" >> script-repo/.env
+    echo "GPT_API_KEY=$(GPT_API_KEY)" >> script-repo/.env
+    echo "SOFTWARE_SUMMARY=$(SOFTWARE_SUMMARY)" >> script-repo/.env
+    echo "DESIRED_WORK_ITEM_TYPES=$(DESIRED_WORK_ITEM_TYPES)" >> script-repo/.env
+    echo "OUTPUT_FOLDER=$(OUTPUT_FOLDER)" >> script-repo/.env
+  displayName: 'Create .env file'
+
+- script: |
+    cd script-repo
+    source .venv/bin/activate
+    python main.py
+  displayName: 'Run release notes script'
+
+- script: |
+    cd script-repo
+    git config --global user.email "$(Build.RequestedForEmail)"
+    git config --global user.name "$(Build.RequestedFor)"
+    git remote set-url origin $(COMMIT_REPO_PATH)
+    git checkout -b $(COMMIT_BRANCH)
+    git add $(OUTPUT_FOLDER)/*
+    git commit -m "Add release notes for version $(RELEASE_VERSION)"
+    git push origin $(COMMIT_BRANCH)
+  displayName: 'Commit and push release notes'
