@@ -2,7 +2,6 @@
 import asyncio
 import aiohttp
 import re
-import json
 import logging
 from pathlib import Path
 from typing import List, Dict, Any
@@ -222,13 +221,11 @@ async def getWorkItemIcons(
         # Ensure "Other" work item type has a default icon
         workItemIcon[WorkItemType.OTHER.value] = workItemIcon.get(
             WorkItemType.OTHER.value,
-            {"iconUrl": "default_icon_url", "color": "gray", "consoleColor": "Gray"},
+            {
+                "iconUrl": "https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_clipboard_issue?color=577275&v=2",
+                "color": "577275",
+            },
         )
-
-        with open(
-            Path("./Releases/workItemTypeToIcon.json"), "w", encoding="utf-8"
-        ) as file:
-            json.dump(workItemIcon, file)
         return workItemIcon
 
 

@@ -17,10 +17,8 @@ from modules.config import (
     DESIRED_WORK_ITEM_TYPES,
     OUTPUT_FOLDER,
     GPT_API_KEY,
-    SOFTWARE_SUMMARY,
-    SUMMARY_PROMPT,
 )
-from modules.enums import WorkItemType, WorkItemField, APIEndpoint
+from modules.enums import WorkItemField, APIEndpoint
 from modules.utils import (
     setupLogs,
     cleanString,

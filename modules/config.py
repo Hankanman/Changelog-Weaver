@@ -1,6 +1,5 @@
 # config.py
 from pathlib import Path
-from modules.enums import WorkItemType
 from dotenv import load_dotenv
 import os
 
