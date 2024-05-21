@@ -192,4 +192,4 @@ if __name__ == "__main__":
         )
         exit(1)
     else:
-        asyncio.run(write_release_notes(RELEASE_QUERY, "Resolved Issues", True, False))
+        asyncio.run(write_release_notes(RELEASE_QUERY, "Resolved Issues", True, True))

@@ -10,7 +10,8 @@ function Find-Command {
 # Check for Python
 if (Find-Command -command "python") {
     Write-Host "Python is installed."
-} else {
+}
+else {
     Write-Host "Python is not installed. Please install Python from https://www.python.org/downloads/"
     exit 1
 }
@@ -18,7 +19,8 @@ if (Find-Command -command "python") {
 # Check for pip
 if (Find-Command -command "pip") {
     Write-Host "pip is installed."
-} else {
+}
+else {
     Write-Host "pip is not installed. Please install pip from https://pip.pypa.io/en/stable/installation/"
     exit 1
 }
@@ -26,7 +28,8 @@ if (Find-Command -command "pip") {
 # Check for npm
 if (Find-Command -command "npm") {
     Write-Host "npm is installed."
-} else {
+}
+else {
     Write-Host "npm is not installed. Please install npm from https://www.npmjs.com/get-npm"
     exit 1
 }
@@ -38,21 +41,37 @@ pip install -r requirements.txt
 if (-Not (Test-Path -Path .env)) {
     Write-Host "Creating .env file with default values."
     @"
-# Azure DevOps and OpenAI Configuration
-ORG_NAME=
-PROJECT_NAME=
-SOLUTION_NAME=
-RELEASE_VERSION=
-RELEASE_QUERY=
-PAT=
-GPT_API_KEY=
-SOFTWARE_SUMMARY =
-DESIRED_WORK_ITEM_TYPES = Epic,Feature,Other
-OUTPUT_FOLDER = releases
-MODEL=gpt-4o
-MODEL_BASE_URL=https://api.openai.com/v1
-DEVOPS_BASE_URL=https://dev.azure.com
-DEVOPS_API_VERSION=6.0
+    # This file contains the configuration settings for the Auto-Release-Notes project. It is a template file and should be renamed to ".env" before use.
+    # The values in this file should be updated with the appropriate values for your environment.
+    # The name of the Azure DevOps organization.
+    ORG_NAME=
+    # The name of the Azure DevOps project.
+    PROJECT_NAME=
+    # The name of the solution or repository.
+    SOLUTION_NAME=
+    # The version of the release.
+    RELEASE_VERSION=
+    # The query used to filter work items for the release.
+    RELEASE_QUERY=
+    # The Personal Access Token (PAT) for accessing Azure DevOps APIs.
+    PAT=
+    # The API key for accessing the GPT API.
+    GPT_API_KEY=
+    # A summary of the software changes or updates.
+    SOFTWARE_SUMMARY=
+    # The types of parental work items to include in the release notes.
+    # This will depend on the work item types used in your project.
+    DESIRED_WORK_ITEM_TYPES= Epic,Feature
+    # The folder where the release notes will be generated.
+    OUTPUT_FOLDER= releases
+    # The GPT model to use for generating release notes.
+    MODEL=gpt-4o
+    # The base URL for the GPT API.
+    MODEL_BASE_URL=https://api.openai.com/v1
+    # The base URL for the Azure DevOps API.
+    DEVOPS_BASE_URL=https://dev.azure.com
+    # The version of the Azure DevOps API to use.
+    DEVOPS_API_VERSION=6.0
 "@ | Out-File -FilePath .env -Encoding utf8
 }
 
