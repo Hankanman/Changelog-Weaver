@@ -7,20 +7,20 @@ pool:
 
 variables:
   # Define the environment variables to be used in the script
-  ORG_NAME: 'your-org-name'
-  PROJECT_NAME: 'your-project-name'
-  SOLUTION_NAME: 'your-solution-name'
-  RELEASE_VERSION: 'your-release-version'
-  RELEASE_QUERY: 'your-release-query-id'
+  ORG_NAME: $(DevOps Organisation Name}
+  PROJECT_NAME: $(DevOps Project Name)
+  SOLUTION_NAME: $(Solution Name)
+  RELEASE_VERSION: $(Release Version)
+  RELEASE_QUERY: $(Release Query)
   PAT: '$(pat)'  # Personal Access Token stored as a secret
   GPT_API_KEY: '$(gptApiKey)'  # GPT API Key stored as a secret
-  SOFTWARE_SUMMARY: 'Your software summary here'
-  DESIRED_WORK_ITEM_TYPES: 'Epic,Feature,Other'
-  OUTPUT_FOLDER: 'releases'
-  GITHUB_REPO_URL: 'https://github.com/your-github-username/your-repo-name.git'
-  GITHUB_TAG: 'main'  # Default to main branch; can be a specific tag or release
-  COMMIT_REPO_PATH: 'https://github.com/your-github-username/your-repo-name.git'  # Repository path to commit release notes
-  COMMIT_BRANCH: 'main'  # Branch to commit release notes to
+  SOFTWARE_SUMMARY: $(Software Summary)
+  DESIRED_WORK_ITEM_TYPES: $(Work Item Types)
+  OUTPUT_FOLDER: $(Output Folder)
+  GITHUB_REPO_URL: $(GitHub Repo Url)
+  GITHUB_TAG: $(GitHub Tag)  # Default to main branch; can be a specific tag or release
+  COMMIT_REPO_PATH: $(Commit Repo Url)  # Repository path to commit release notes
+  COMMIT_BRANCH: $(Commit Branch)  # Branch to commit release notes to
 
 steps:
 - task: UsePythonVersion@0
