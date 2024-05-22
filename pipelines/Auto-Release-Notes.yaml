@@ -12,7 +12,7 @@ variables:
   SOLUTION_NAME: $(Solution Name)
   RELEASE_VERSION: $(Release Version)
   RELEASE_QUERY: $(Release Query)
-  PAT: '$(PAT)'  # Personal Access Token stored as a secret
+  PAT: $(PAT)  # Personal Access Token stored as a secret
   GPT_API_KEY: $(GPT API Key)  # GPT API Key stored as a secret
   SOFTWARE_SUMMARY: $(Software Summary)
   DESIRED_WORK_ITEM_TYPES: $(Work Item Types)
