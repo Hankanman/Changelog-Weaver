@@ -45,7 +45,7 @@ steps:
     echo "SOLUTION_NAME=$(SOLUTION_NAME)" >> script-repo/.env
     echo "RELEASE_VERSION=$(RELEASE_VERSION)" >> script-repo/.env
     echo "RELEASE_QUERY=$(RELEASE_QUERY)" >> script-repo/.env
-    echo "PAT=$(PAT)" >> script-repo/.env
+    echo "PAT=$(System.AccessToken)" >> script-repo/.env
     echo "GPT_API_KEY=$(GPT_API_KEY)" >> script-repo/.env
     echo "SOFTWARE_SUMMARY=$(SOFTWARE_SUMMARY)" >> script-repo/.env
     echo "DESIRED_WORK_ITEM_TYPES=$(DESIRED_WORK_ITEM_TYPES)" >> script-repo/.env
