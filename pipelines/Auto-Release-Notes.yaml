@@ -39,7 +39,7 @@ steps:
     displayName: "Set up Python environment"
 
   - script: |
-      cd script-repo/pipelines
+      cd script-repo
       chmod +x setup_env.sh
       ./setup_env.sh
     displayName: 'Create .env file'
