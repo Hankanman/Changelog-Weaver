@@ -186,6 +186,7 @@ if __name__ == "__main__":
         PAT,
         GPT_API_KEY,
     ]
+    print(ORG_NAME, PROJECT_NAME, SOLUTION_NAME, RELEASE_VERSION, RELEASE_QUERY, PAT, GPT_API_KEY)
     if any(not var for var in required_env_vars):
         log.error(
             "Please set the environment variables in the .env file before running the script."
