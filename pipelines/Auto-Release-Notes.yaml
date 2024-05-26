@@ -40,18 +40,18 @@ steps:
 
   - script: |
       cd script-repo
-      {
-        echo "ORG_NAME=$(ORG_NAME)"
-        echo "PROJECT_NAME=$(PROJECT_NAME)"
-        echo "SOLUTION_NAME=$(SOLUTION_NAME)"
-        echo "RELEASE_VERSION=$(RELEASE_VERSION)"
-        echo "RELEASE_QUERY=$(RELEASE_QUERY)"
-        echo "PAT=$(PAT)"
-        echo "GPT_API_KEY=$(GPT_API_KEY)"
-        echo "SOFTWARE_SUMMARY=$(SOFTWARE_SUMMARY)"
-        echo "DESIRED_WORK_ITEM_TYPES=$(DESIRED_WORK_ITEM_TYPES)"
-        echo "OUTPUT_FOLDER=$(OUTPUT_FOLDER)"
-      } > .env
+      cat <<EOF > .env
+      ORG_NAME=$(ORG_NAME)
+      PROJECT_NAME=$(PROJECT_NAME)
+      SOLUTION_NAME=$(SOLUTION_NAME)
+      RELEASE_VERSION=$(RELEASE_VERSION)
+      RELEASE_QUERY=$(RELEASE_QUERY)
+      PAT=$(PAT)
+      GPT_API_KEY=$(GPT_API_KEY)
+      SOFTWARE_SUMMARY=$(SOFTWARE_SUMMARY)
+      DESIRED_WORK_ITEM_TYPES=$(DESIRED_WORK_ITEM_TYPES)
+      OUTPUT_FOLDER=$(OUTPUT_FOLDER)
+      EOF
     displayName: 'Create .env file'
 
   - script: |
