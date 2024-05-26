@@ -39,17 +39,20 @@ steps:
     displayName: "Set up Python environment"
 
   - script: |
-      echo "ORG_NAME=$(ORG_NAME)" >> script-repo/.env
-      echo "PROJECT_NAME=$(PROJECT_NAME)" >> script-repo/.env
-      echo "SOLUTION_NAME=$(SOLUTION_NAME)" >> script-repo/.env
-      echo "RELEASE_VERSION=$(RELEASE_VERSION)" >> script-repo/.env
-      echo "RELEASE_QUERY=$(RELEASE_QUERY)" >> script-repo/.env
-      echo "PAT=$(System.AccessToken)" >> script-repo/.env
-      echo "GPT_API_KEY=$(GPT_API_KEY)" >> script-repo/.env
-      echo "SOFTWARE_SUMMARY=$(SOFTWARE_SUMMARY)" >> script-repo/.env
-      echo "DESIRED_WORK_ITEM_TYPES=$(DESIRED_WORK_ITEM_TYPES)" >> script-repo/.env
-      echo "OUTPUT_FOLDER=$(OUTPUT_FOLDER)" >> script-repo/.env
-    displayName: "Create .env file"
+      cd script-repo
+      {
+        echo "ORG_NAME=$(ORG_NAME)"
+        echo "PROJECT_NAME=$(PROJECT_NAME)"
+        echo "SOLUTION_NAME=$(SOLUTION_NAME)"
+        echo "RELEASE_VERSION=$(RELEASE_VERSION)"
+        echo "RELEASE_QUERY=$(RELEASE_QUERY)"
+        echo "PAT=$(PAT)"
+        echo "GPT_API_KEY=$(GPT_API_KEY)"
+        echo "SOFTWARE_SUMMARY=$(SOFTWARE_SUMMARY)"
+        echo "DESIRED_WORK_ITEM_TYPES=$(DESIRED_WORK_ITEM_TYPES)"
+        echo "OUTPUT_FOLDER=$(OUTPUT_FOLDER)"
+      } > .env
+    displayName: 'Create .env file'
 
   - script: |
       cd script-repo
