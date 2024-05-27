@@ -7,7 +7,7 @@ pool:
 
 variables:
   # Define the environment variables to be used in the script
-  ORG_NAME: $(DevOps Organisation Name}
+  ORG_NAME: $(DevOps Organisation Name)
   PROJECT_NAME: $(DevOps Project Name)
   SOLUTION_NAME: $(Solution Name)
   RELEASE_VERSION: $(Release Version)
