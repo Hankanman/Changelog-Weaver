@@ -20,7 +20,7 @@ variables:
   GITHUB_TAG: $(GitHub Tag) # Default to main branch; can be a specific tag or release
   COMMIT_REPO_PATH: $(Commit Repo Url) # Repository path to commit release notes
   COMMIT_BRANCH: $(Commit Branch) # Branch to commit release notes to
-  PAT=$(System.AccessToken)
+  PAT: $(System.AccessToken)
 
 steps:
   - task: UsePythonVersion@0
