@@ -37,6 +37,7 @@ This script generates release notes for a given release version of a solution in
     ```
 
 12. Hit "Save" or "Save and Run"
+13. The pipeline will now run whenever the main branch is updated
 
 ## Run the Script Locally
 
