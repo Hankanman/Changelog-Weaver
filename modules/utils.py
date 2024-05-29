@@ -179,13 +179,20 @@ async def summarise(prompt: str):
             except aiohttp.ClientResponseError as e:
                 if e.status == ResponseStatus.RATE_LIMIT.value:
                     delay = initial_delay * (2**retry_count)
-                    logging.warning(f"Rate limit hit, retrying in {delay} seconds...")
+                    logging.warning(f"AI API Error (Too Many Requests), retrying in {delay} seconds...")
                     await asyncio.sleep(delay)
                     retry_count += 1
                 elif e.status == ResponseStatus.ERROR.value:
                     delay = initial_delay * (2**retry_count)
                     logging.warning(
-                        f"Too many requests, retrying in {delay} seconds..."
+                        f"AI API Error (Internal Server Error), retrying in {delay} seconds..."
+                    )
+                    await asyncio.sleep(delay)
+                    retry_count += 1
+                elif e.status == ResponseStatus.NOT_FOUND.value:
+                    delay = initial_delay * (2**retry_count)
+                    logging.warning(
+                        f"AI API Error (Not Found), retrying in {delay} seconds..."
                     )
                     await asyncio.sleep(delay)
                     retry_count += 1
