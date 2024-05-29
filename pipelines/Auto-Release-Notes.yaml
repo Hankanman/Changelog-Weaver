@@ -42,21 +42,19 @@ stages:
       inputs:
         versionSpec: "3.x"
         addToPath: true
-    - task: CmdLine@2
+    - task: Bash@3
       displayName: 'Clean build sources folder (pulled from fake git) '
       inputs:
         script: |
-          rd /S /Q "$(Build.SourcesDirectory)\.git"
-          del /S /Q "$(Build.SourcesDirectory)\*"
-          exit
+          rmdir /S /Q "$(Build.SourcesDirectory)\.git"
+          rm /S /Q "$(Build.SourcesDirectory)\*"
     
-    - task: CmdLine@2
+    - task: Bash@3
       displayName: 'Custom git clone'
       inputs:
         script: |
           echo 'Cloning into sources folder at: $(Build.SourcesDirectory)\script'
           git clone $(GITHUB_REPO_URL) --progress --branch $(GITHUB_TAG) --single-branch --depth=1 "$(Build.SourcesDirectory)\script"
-          exit
     - task: Bash@3
       displayName: "Set up Python environment"
       inputs:
