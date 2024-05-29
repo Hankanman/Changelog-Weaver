@@ -1,5 +1,6 @@
 """ Main script to write release notes based on Azure DevOps work items. """
 import base64
+import sys
 import logging as log
 from pathlib import Path
 from urllib.parse import quote
@@ -204,7 +205,7 @@ if __name__ == "__main__":
         log.error(
             "Please set the environment variables in the .env file before running the script."
         )
-        exit(1)
+        sys.exit(1)
     else:
         with open(".env", "r", encoding="utf-8") as file:
             # Read the content of the file

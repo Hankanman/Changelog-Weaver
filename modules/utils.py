@@ -1,5 +1,6 @@
 """ This module contains utility functions for the script. """
 
+import sys
 import re
 import logging
 from pathlib import Path
@@ -201,7 +202,7 @@ async def summarise(prompt: str):
                         "AI API Key Error, this is usually because you are using a free account rather than a paid one.",
                         exc_info=True,
                     )
-                    exit(1)
+                    sys.exit(1)
                 else:
                     logging.error("Request failed", exc_info=True)
                     raise e
@@ -270,7 +271,7 @@ async def getWorkItems(
         query_response = await response.json()
         if response.status != 200:
             logging.error(query_response["message"])
-            exit(1)
+            sys.exit(1)
         ids = [str(item["id"]) for item in query_response["workItems"]]
 
         # Split ids into chunks of 199
