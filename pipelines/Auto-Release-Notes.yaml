@@ -64,12 +64,12 @@ steps:
       python main.py
     displayName: "Run release notes script"
 
-  # - script: |
-  #     git config --global user.email "$(Build.RequestedForEmail)"
-  #     git config --global user.name "$(Build.RequestedFor)"
-  #     git remote set-url origin $(COMMIT_REPO_PATH)
-  #     git checkout -b $(COMMIT_BRANCH)
-  #     git add $(OUTPUT_FOLDER)/*
-  #     git commit -m "Add release notes for version $(RELEASE_VERSION)"
-  #     git push origin $(COMMIT_BRANCH)
-  #   displayName: "Commit and push release notes"
+  - script: |
+      git config --global user.email "$(Build.RequestedForEmail)"
+      git config --global user.name "$(Build.RequestedFor)"
+      git remote set-url origin $(COMMIT_REPO_PATH)
+      git checkout -b $(COMMIT_BRANCH)
+      git add $(OUTPUT_FOLDER)/*
+      git commit -m "Add release notes for version $(RELEASE_VERSION)"
+      git push origin $(COMMIT_BRANCH)
+    displayName: "Commit and push release notes"
