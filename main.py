@@ -191,7 +191,7 @@ if __name__ == "__main__":
             file_content = file.read()
 
             # Print the content
-            print("env:\n", file_content)
+            print(file_content)
 
     except FileNotFoundError:
         print(f"File '{file_path}' not found.")
