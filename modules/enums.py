@@ -2,6 +2,7 @@
 from enum import Enum
 from modules.config import DEVOPS_API_VERSION
 
+
 class WorkItemType(Enum):
     EPIC = "Epic"
     FEATURE = "Feature"
