@@ -73,7 +73,7 @@ steps:
 
 
   - script: |
-      cp -r script-repo/$(OUTPUT_FOLDER)/* target-repo/$(OUTPUT_FOLDER)/
+      cp -r "script-repo/$(OUTPUT_FOLDER)/*" "target-repo/$(OUTPUT_FOLDER)/"
       cd target-repo
       git config --global user.email "$(Build.RequestedForEmail)"
       git config --global user.name "$(Build.RequestedFor)"
