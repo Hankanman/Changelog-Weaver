@@ -42,16 +42,26 @@ stages:
       inputs:
         versionSpec: "3.x"
         addToPath: true
-    - task: Bash@3
-      displayName: "Clone GitHub Repository"
+    - task: CmdLine@2
+      displayName: 'Clean build sources folder (pulled from fake git) '
       inputs:
         script: |
-          git clone --branch $(GITHUB_TAG) $(GITHUB_REPO_URL) ./script-repo
+          rd /S /Q "$(Build.SourcesDirectory)\.git"
+          del /S /Q "$(Build.SourcesDirectory)\*"
+          exit
+    
+    - task: CmdLine@2
+      displayName: 'Custom git clone'
+      inputs:
+        script: |
+          echo 'Cloning into sources folder at: $(Build.SourcesDirectory)\script'
+          git clone $(GITHUB_REPO_URL) --progress --branch $(GITHUB_TAG) --single-branch --depth=1 "$(Build.SourcesDirectory)\script"
+          exit
     - task: Bash@3
       displayName: "Set up Python environment"
       inputs:
         script: |
-          cd /script-repo
+          cd script
           python -m venv .venv
           source .venv/bin/activate
           pip install -r requirements.txt
@@ -59,7 +69,7 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          cd /script-repo
+          cd script
           cat <<EOF > .env
           ORG_NAME=$DEVOPS_ORGANISATION_NAME
           PROJECT_NAME=$PROJECT_NAME
@@ -78,7 +88,7 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          cd /script-repo
+          cd script
           source .venv/bin/activate
           python main.py
       displayName: "Run Release Notes Script"
@@ -86,7 +96,7 @@ stages:
       displayName: "Commit and push release notes"
       inputs:
         script: |
-          cd /script-repo
+          cd script
           git config --global user.email "$(Build.RequestedForEmail)"
           git config --global user.name "$(Build.RequestedFor)"
           git remote set-url origin $(COMMIT_REPO_PATH)
