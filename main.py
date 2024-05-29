@@ -13,10 +13,14 @@ from modules.config import (
     RELEASE_VERSION,
     RELEASE_QUERY,
     PAT,
+    GPT_API_KEY,
+    MODEL,
+    MODEL_BASE_URL,
     DEVOPS_BASE_URL,
     DESIRED_WORK_ITEM_TYPES,
     OUTPUT_FOLDER,
-    GPT_API_KEY,
+    SOFTWARE_SUMMARY,
+    DEVOPS_API_VERSION,
 )
 from modules.enums import WorkItemField, APIEndpoint
 from modules.utils import (
@@ -177,15 +181,38 @@ async def write_release_notes(
 if __name__ == "__main__":
     setupLogs()
     # check if the environment variables are set and exit if not
+
+    # Open the file in read mode
+    file_path = ".env"
+
+    try:
+        with open(file_path, "r") as file:
+            # Read the content of the file
+            file_content = file.read()
+
+            # Print the content
+            print("env:\n", file_content)
+
+    except FileNotFoundError:
+        print(f"File '{file_path}' not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
     required_env_vars = [
         ORG_NAME,
         PROJECT_NAME,
         SOLUTION_NAME,
         RELEASE_VERSION,
         RELEASE_QUERY,
+        PAT,
         GPT_API_KEY,
+        MODEL,
+        MODEL_BASE_URL,
+        DEVOPS_BASE_URL,
+        DESIRED_WORK_ITEM_TYPES,
+        OUTPUT_FOLDER,
+        SOFTWARE_SUMMARY,
+        DEVOPS_API_VERSION,
     ]
-    print(ORG_NAME, PROJECT_NAME, SOLUTION_NAME, RELEASE_VERSION, RELEASE_QUERY, GPT_API_KEY)
     if any(not var for var in required_env_vars):
         log.error(
             "Please set the environment variables in the .env file before running the script."

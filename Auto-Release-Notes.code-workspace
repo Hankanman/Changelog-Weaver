@@ -4,5 +4,7 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"azure-pipelines.customSchemaFile": "https://dev.azure.com/trustmarque-devops/_apis/distributedtask/yamlschema"
+	}
 }
