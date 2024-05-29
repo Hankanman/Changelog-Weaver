@@ -6,20 +6,32 @@ pool:
   vmImage: "ubuntu-latest"
 
 variables:
-  # Define the environment variables to be used in the script
+  # The name of the DevOps organization.
   ORG_NAME: $(DevOps Organisation Name)
+  # The name of the DevOps project.
   PROJECT_NAME: $(DevOps Project Name)
+  # The name of the solution.
   SOLUTION_NAME: $(Solution Name)
+  # The version of the release.
   RELEASE_VERSION: $(Release Version)
+  # The query to retrieve the release information.
   RELEASE_QUERY: $(Release Query)
-  GPT_API_KEY: $(GPT API Key) # GPT API Key stored as a secret
+  # The API key for the GPT service (stored as a secret).
+  GPT_API_KEY: $(GPT API Key)
+  # A summary of the software.
   SOFTWARE_SUMMARY: $(Software Summary)
+  # The desired work item types.
   DESIRED_WORK_ITEM_TYPES: $(Work Item Types)
+  # The output folder for the release notes.
   OUTPUT_FOLDER: $(Output Folder)
+  # The URL of the GitHub repository.
   GITHUB_REPO_URL: $(GitHub Repo Url)
-  GITHUB_TAG: $(GitHub Tag) # Default to main branch; can be a specific tag or release
-  COMMIT_REPO_PATH: $(Commit Repo Url) # Repository path to commit release notes
-  COMMIT_BRANCH: $(Commit Branch) # Branch to commit release notes to
+  # The GitHub tag or branch to generate release notes for.
+  GITHUB_TAG: $(GitHub Tag)
+  # The repository path to commit the release notes.
+  COMMIT_REPO_PATH: $(Commit Repo Url)
+  # The branch to commit the release notes to.
+  COMMIT_BRANCH: $(Commit Branch)
 
 steps:
   - task: UsePythonVersion@0
@@ -73,7 +85,7 @@ steps:
 
 
   - script: |
-      cp -r "script-repo/$(OUTPUT_FOLDER)/*" "target-repo/$(OUTPUT_FOLDER)/"
+      cp -r "script-repo/$(OUTPUT_FOLDER)/"* "target-repo/$(OUTPUT_FOLDER)/"
       cd target-repo
       git config --global user.email "$(Build.RequestedForEmail)"
       git config --global user.name "$(Build.RequestedFor)"
