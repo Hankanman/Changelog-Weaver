@@ -48,7 +48,7 @@ stages:
       inputs:
         script: |
           echo 'Cloning into sources folder at: $(Pipeline.Workspace)'
-          git clone $(GITHUB_REPO_URL) --progress --branch $(GITHUB_TAG) --single-branch --depth=1 "$(Pipeline.Workspace)"
+          git clone $(GITHUB_REPO_URL) --progress --branch $(GITHUB_TAG) --single-branch --depth=1 "$(Pipeline.Workspace)/"
     - task: Bash@3
       displayName: "Set up Python environment"
       inputs:
