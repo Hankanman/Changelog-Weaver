@@ -17,7 +17,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pylint
+        pip install pylint dotenv aiohttp
     - name: Analysing the code with pylint
       run: |
         pylint $(git ls-files '*.py') --function-naming-style=camelCase --module-naming-style=camelCase --variable-naming-style=snake_case --max-line-length=200
