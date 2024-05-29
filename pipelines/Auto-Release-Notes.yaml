@@ -65,14 +65,15 @@ steps:
     displayName: "Run release notes script"
 
   - script: |
+      cd script-repo
       git config --global user.email "$(Build.RequestedForEmail)"
       git config --global user.name "$(Build.RequestedFor)"
       git remote set-url origin $(COMMIT_REPO_PATH)
       git checkout -b $(COMMIT_BRANCH)
       git add "$(OUTPUT_FOLDER)/*"
       git commit -m "Add release notes for version $(RELEASE_VERSION)"
-      git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin $(COMMIT_BRANCH)
+      git -c http.extraheader="AUTHORIZATION: bearer $(SYSTEM_ACCESSTOKEN)" pull --rebase origin $(COMMIT_BRANCH)
+      git -c http.extraheader="AUTHORIZATION: bearer $(SYSTEM_ACCESSTOKEN)" push origin $(COMMIT_BRANCH)
     displayName: 'Commit and push release notes'
     env:
-      GIT_ASKPASS: 'echo'
-      GIT_TOKEN: $(System.AccessToken)
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
