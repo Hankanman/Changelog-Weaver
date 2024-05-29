@@ -59,9 +59,7 @@ def encodePat():
     return base64.b64encode(f":{PAT}".encode()).decode()
 
 
-async def fetchParentItems(
-    session, org_name_escaped, project_name_escaped, parent_ids
-):
+async def fetchParentItems(session, org_name_escaped, project_name_escaped, parent_ids):
     """Fetches parent work items from Azure DevOps."""
     parent_work_items = {}
     for parent_id in parent_ids:
@@ -129,12 +127,7 @@ async def processItems(
     summary_notes = ""
     for work_item_type in DESIRED_WORK_ITEM_TYPES:
         log.info("Processing %s s", {work_item_type})
-
-        parent_ids_of_type = [
-            pid
-            for pid, item in parent_work_items.items()
-            if item["fields"]["System.WorkItemType"] == work_item_type
-        ]
+        parent_ids_of_type = getParentIdsByType(parent_work_items, work_item_type)
 
         for parent_id in parent_ids_of_type:
             parent_work_item = parent_work_items[parent_id]
@@ -143,35 +136,22 @@ async def processItems(
             )
             log.info("%s | %s | %s", work_item_type, parent_id, parent_title)
 
-            parent_link = parent_work_item["_links"]["html"]["href"]
-            parent_icon_url = work_item_type_to_icon.get(work_item_type)["iconUrl"]
+            parent_link, parent_icon_url = getParentLinkAndIcon(
+                parent_work_item, work_item_type_to_icon, work_item_type
+            )
+            child_items = getChildItems(work_items, parent_id)
 
-            child_items = [
-                wi
-                for wi in work_items
-                if wi["fields"].get(WorkItemField.PARENT.value) == int(parent_id)
-            ]
             if not child_items:
                 log.info("No child items found for parent %s", parent_id)
 
             summary_notes += f"- {parent_title}\n"
-            parent_head_link = (
-                f"[#{parent_id}]({parent_link}) " if parent_id != "0" else ""
-            )
-            parent_header = (
-                f"\n### <img src='{parent_icon_url}' alt='icon' width='20' height='20'> "
-                f"{parent_head_link}{parent_title}\n"
+            parent_header = generateParentHeader(
+                parent_id, parent_link, parent_icon_url, parent_title
             )
 
-            grouped_child_items = defaultdict(list)
-            for item in child_items:
-                grouped_child_items[
-                    item["fields"][WorkItemField.WORK_ITEM_TYPE.value]
-                ].append(item)
-
+            grouped_child_items = groupChildItemsByType(child_items)
             if grouped_child_items:
-                with open(file_md, "a", encoding="utf-8") as file_output:
-                    file_output.write(parent_header)
+                writeParentHeaderToFile(file_md, parent_header)
                 await updateItemGroup(
                     summary_notes,
                     grouped_child_items,
@@ -180,7 +160,52 @@ async def processItems(
                     session,
                     summarize_items,
                 )
+
     return summary_notes
+
+
+def getParentIdsByType(parent_work_items, work_item_type):
+    return [
+        pid
+        for pid, item in parent_work_items.items()
+        if item["fields"]["System.WorkItemType"] == work_item_type
+    ]
+
+
+def getParentLinkAndIcon(parent_work_item, work_item_type_to_icon, work_item_type):
+    parent_link = parent_work_item["_links"]["html"]["href"]
+    parent_icon_url = work_item_type_to_icon.get(work_item_type)["iconUrl"]
+    return parent_link, parent_icon_url
+
+
+def getChildItems(work_items, parent_id):
+    return [
+        wi
+        for wi in work_items
+        if wi["fields"].get(WorkItemField.PARENT.value) == int(parent_id)
+    ]
+
+
+def generateParentHeader(parent_id, parent_link, parent_icon_url, parent_title):
+    parent_head_link = f"[#{parent_id}]({parent_link}) " if parent_id != "0" else ""
+    return (
+        f"\n### <img src='{parent_icon_url}' alt='icon' width='20' height='20'> "
+        f"{parent_head_link}{parent_title}\n"
+    )
+
+
+def groupChildItemsByType(child_items):
+    grouped_child_items = defaultdict(list)
+    for item in child_items:
+        grouped_child_items[item["fields"][WorkItemField.WORK_ITEM_TYPE.value]].append(
+            item
+        )
+    return grouped_child_items
+
+
+def writeParentHeaderToFile(file_md, parent_header):
+    with open(file_md, "a", encoding="utf-8") as file_output:
+        file_output.write(parent_header)
 
 
 async def writeReleaseNotes(

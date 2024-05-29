@@ -179,6 +179,9 @@ async def summarise(prompt: str):
                 ) as response:
                     response.raise_for_status()
                     result = await response.json()
+                    if response.status != 200:
+                        logging.error(result["message"])
+                        sys.exit(1)
                     return result["choices"][0]["message"]["content"]
             except aiohttp.ClientResponseError as e:
                 if e.status == ResponseStatus.RATE_LIMIT.value:
@@ -228,6 +231,11 @@ async def getWorkItemIcons(
     )
     async with session.get(uri) as response:
         response_json = await response.json()
+        if response.status != 200:
+            logging.error(response_json["message"])
+            sys.exit(1)
+        else:
+            logging.info("Fetching work item icons...")
         icons = [
             {"name": item["name"], "iconUrl": item["icon"]["url"]}
             for item in response_json["value"]
@@ -308,6 +316,9 @@ async def fetchItems(session, org_name: str, project_name: str, ids: List[str]):
     )
     async with session.get(uri) as response:
         work_items_response = await response.json()
+        if response.status != 200:
+            logging.error(work_items_response["message"])
+            sys.exit(1)
         return work_items_response["value"]
 
 
@@ -359,6 +370,9 @@ async def updateItemGroup(
                 comment_link = child_item["_links"]["workItemComments"]["href"]
                 async with session.get(comment_link) as comment_response:
                     comments_response = await comment_response.json()
+                    if comment_response.status != 200:
+                        logging.error(comments_response["message"])
+                        sys.exit(1)
                     comments = " ".join(
                         [
                             cleanString(comment["text"])
