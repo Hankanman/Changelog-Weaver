@@ -345,7 +345,7 @@ async def updateItemGroup(
         None
     """
     for work_item_type, items in grouped_work_items.items():
-        logging.info(" Writing notes for %ss", work_item_type)
+        logging.info("Writing notes for %ss", work_item_type)
         group_icon_url = work_item_icon[work_item_type]["iconUrl"]
         summary_notes_ref += f" - {work_item_type}s: \n"
 

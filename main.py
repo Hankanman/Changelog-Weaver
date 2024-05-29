@@ -35,6 +35,24 @@ from modules.utils import (
 )
 
 
+class ProcessConfig:
+    """
+    Represents a configuration for processing data.
+
+    Args:
+        session (str): The session information.
+        file_md (str): The file metadata.
+        summarize_items (bool): Flag indicating whether to summarize items.
+        work_item_type_to_icon (dict): A dictionary mapping work item types to icons.
+    """
+
+    def __init__(self, session, file_md, summarize_items, work_item_type_to_icon):
+        self.session = session
+        self.file_md = file_md
+        self.summarize_items = summarize_items
+        self.work_item_type_to_icon = work_item_type_to_icon
+
+
 def setupFiles():
     """Sets up the necessary file paths and initial markdown content."""
     folder_path = Path(".") / OUTPUT_FOLDER
@@ -115,18 +133,11 @@ def addOtherParent(parent_work_items):
     }
 
 
-async def processItems(
-    session,
-    file_md,
-    summarize_items,
-    work_item_type_to_icon,
-    work_items,
-    parent_work_items,
-):
+async def processItems(config, work_items, parent_work_items):
     """Processes work items and writes them to the markdown file."""
     summary_notes = ""
     for work_item_type in DESIRED_WORK_ITEM_TYPES:
-        log.info("Processing %s s", {work_item_type})
+        log.info("Processing %ss", work_item_type)
         parent_ids_of_type = getParentIdsByType(parent_work_items, work_item_type)
 
         for parent_id in parent_ids_of_type:
@@ -137,7 +148,7 @@ async def processItems(
             log.info("%s | %s | %s", work_item_type, parent_id, parent_title)
 
             parent_link, parent_icon_url = getParentLinkAndIcon(
-                parent_work_item, work_item_type_to_icon, work_item_type
+                parent_work_item, config.work_item_type_to_icon, work_item_type
             )
             child_items = getChildItems(work_items, parent_id)
 
@@ -151,20 +162,30 @@ async def processItems(
 
             grouped_child_items = groupChildItemsByType(child_items)
             if grouped_child_items:
-                writeParentHeaderToFile(file_md, parent_header)
+                writeParentHeaderToFile(config.file_md, parent_header)
                 await updateItemGroup(
                     summary_notes,
                     grouped_child_items,
-                    work_item_type_to_icon,
-                    file_md,
-                    session,
-                    summarize_items,
+                    config.work_item_type_to_icon,
+                    config.file_md,
+                    config.session,
+                    config.summarize_items,
                 )
 
     return summary_notes
 
 
 def getParentIdsByType(parent_work_items, work_item_type):
+    """
+    Returns a list of parent work item IDs that match the specified work item type.
+
+    Args:
+        parent_work_items (dict): A dictionary containing parent work items, where the keys are the work item IDs and the values are the work item details.
+        work_item_type (str): The work item type to filter by.
+
+    Returns:
+        list: A list of parent work item IDs that match the specified work item type.
+    """
     return [
         pid
         for pid, item in parent_work_items.items()
@@ -173,12 +194,33 @@ def getParentIdsByType(parent_work_items, work_item_type):
 
 
 def getParentLinkAndIcon(parent_work_item, work_item_type_to_icon, work_item_type):
+    """
+    Get the parent link and icon URL for a given work item.
+
+    Args:
+        parent_work_item (dict): The parent work item.
+        work_item_type_to_icon (dict): A dictionary mapping work item types to their corresponding icon URLs.
+        work_item_type (str): The type of the work item.
+
+    Returns:
+        tuple: A tuple containing the parent link and icon URL.
+    """
     parent_link = parent_work_item["_links"]["html"]["href"]
     parent_icon_url = work_item_type_to_icon.get(work_item_type)["iconUrl"]
     return parent_link, parent_icon_url
 
 
 def getChildItems(work_items, parent_id):
+    """
+    Returns a list of child work items based on the given parent ID.
+
+    Parameters:
+    work_items (list): A list of work items.
+    parent_id (int): The ID of the parent work item.
+
+    Returns:
+    list: A list of child work items.
+    """
     return [
         wi
         for wi in work_items
@@ -187,6 +229,19 @@ def getChildItems(work_items, parent_id):
 
 
 def generateParentHeader(parent_id, parent_link, parent_icon_url, parent_title):
+    """
+    Generate a parent header for a given parent ID, link, icon URL, and title.
+
+    Args:
+        parent_id (str): The ID of the parent.
+        parent_link (str): The link associated with the parent.
+        parent_icon_url (str): The URL of the icon for the parent.
+        parent_title (str): The title of the parent.
+
+    Returns:
+        str: The generated parent header.
+
+    """
     parent_head_link = f"[#{parent_id}]({parent_link}) " if parent_id != "0" else ""
     return (
         f"\n### <img src='{parent_icon_url}' alt='icon' width='20' height='20'> "
@@ -195,6 +250,15 @@ def generateParentHeader(parent_id, parent_link, parent_icon_url, parent_title):
 
 
 def groupChildItemsByType(child_items):
+    """
+    Groups child items by their work item type.
+
+    Parameters:
+    - child_items (list): A list of child items.
+
+    Returns:
+    - grouped_child_items (defaultdict): A defaultdict containing the child items grouped by their work item type.
+    """
     grouped_child_items = defaultdict(list)
     for item in child_items:
         grouped_child_items[item["fields"][WorkItemField.WORK_ITEM_TYPE.value]].append(
@@ -204,6 +268,16 @@ def groupChildItemsByType(child_items):
 
 
 def writeParentHeaderToFile(file_md, parent_header):
+    """
+    Appends the parent header to the specified Markdown file.
+
+    Args:
+        file_md (str): The path to the Markdown file.
+        parent_header (str): The parent header to be written.
+
+    Returns:
+        None
+    """
     with open(file_md, "a", encoding="utf-8") as file_output:
         file_output.write(parent_header)
 
@@ -212,7 +286,13 @@ async def writeReleaseNotes(
     query_id: str, section_header: str, summarize_items: bool, output_html: bool
 ):
     """
-    Main function to write release notes based on Azure DevOps work items.
+    Writes release notes based on the provided parameters.
+
+    Args:
+        query_id (str): The ID of the query to fetch work items from.
+        section_header (str): The header for the release notes section.
+        summarize_items (bool): Flag indicating whether to summarize the work items.
+        output_html (bool): Flag indicating whether to output the release notes in HTML format.
     """
     org_name_escaped = quote(ORG_NAME)
     project_name_escaped = quote(PROJECT_NAME)
@@ -230,14 +310,10 @@ async def writeReleaseNotes(
         )
         addOtherParent(parent_work_items)
 
-        summary_notes = await processItems(
-            session,
-            file_md,
-            summarize_items,
-            work_item_type_to_icon,
-            work_items,
-            parent_work_items,
+        config = ProcessConfig(
+            session, file_md, summarize_items, work_item_type_to_icon
         )
+        summary_notes = await processItems(config, work_items, parent_work_items)
 
         await finaliseNotes(
             output_html, summary_notes, file_md, file_html, [section_header]
@@ -271,7 +347,6 @@ if __name__ == "__main__":
         with open(".env", "r", encoding="utf-8") as file:
             # Read the content of the file
             file_content = file.read()
-
             # Print the content
             print(file_content)
         asyncio.run(writeReleaseNotes(RELEASE_QUERY, "Resolved Issues", True, True))
