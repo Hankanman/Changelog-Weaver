@@ -1,80 +1,99 @@
-# azure-pipelines.yml
 trigger:
-  - main
-
-pool:
-  vmImage: "ubuntu-latest"
-
+  branches:
+    include:
+    - main
 variables:
-  # Define the environment variables to be used in the script
-  ORG_NAME: $(DevOps Organisation Name)
-  PROJECT_NAME: $(DevOps Project Name)
-  SOLUTION_NAME: $(Solution Name)
-  RELEASE_VERSION: $(Release Version)
-  RELEASE_QUERY: $(Release Query)
-  GPT_API_KEY: $(GPT API Key) # GPT API Key stored as a secret
-  SOFTWARE_SUMMARY: $(Software Summary)
-  DESIRED_WORK_ITEM_TYPES: $(Work Item Types)
-  OUTPUT_FOLDER: $(Output Folder)
-  GITHUB_REPO_URL: $(GitHub Repo Url)
-  GITHUB_TAG: $(GitHub Tag) # Default to main branch; can be a specific tag or release
-  COMMIT_REPO_PATH: $(Commit Repo Url) # Repository path to commit release notes
-  COMMIT_BRANCH: $(Commit Branch) # Branch to commit release notes to
-  PAT: $(System.AccessToken)
+- name: ORG_NAME
+  value: $(DevOps Organisation Name)
+- name: PROJECT_NAME
+  value: $(DevOps Project Name)
+- name: SOLUTION_NAME
+  value: $(Solution Name)
+- name: RELEASE_VERSION
+  value: $(Release Version)
+- name: RELEASE_QUERY
+  value: $(Release Query)
+- name: GPT_API_KEY
+  value: $(GPT API Key)
+- name: SOFTWARE_SUMMARY
+  value: $(Software Summary)
+- name: DESIRED_WORK_ITEM_TYPES
+  value: $(Work Item Types)
+- name: OUTPUT_FOLDER
+  value: $(Output Folder)
+- name: GITHUB_REPO_URL
+  value: $(GitHub Repo Url)
+- name: GITHUB_TAG
+  value: $(GitHub Tag)
+- name: COMMIT_REPO_PATH
+  value: $(Commit Repo Url)
+- name: COMMIT_BRANCH
+  value: $(Commit Branch)
+- name: PAT
+  value: $(System.AccessToken)
+stages:
+- stage: __default
+  jobs:
+  - job: Job
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: "3.x"
+        addToPath: true
+    - task: CmdLine@2
+      displayName: "Clone GitHub Repository"
+      inputs:
+        script: |
+          git clone --branch $(GITHUB_TAG) $(GITHUB_REPO_URL) script-repo
+    - task: CmdLine@2
+      displayName: "Set up Python environment"
+      inputs:
+        script: |
+          cd script-repo
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+    - task: PythonScript@0
+      inputs:
+        scriptSource: 'filePath'
+        scriptPath: 'script-repo/main.py'
+    - task: Bash@3
+      inputs:
+        targetType: 'inline'
+        script: |
+          cat <<EOF > script-repo/.env
+          ORG_NAME=$DEVOPS_ORGANISATION_NAME
+          PROJECT_NAME=$PROJECT_NAME
+          SOLUTION_NAME=$SOLUTION_NAME
+          RELEASE_VERSION=$RELEASE_VERSION
+          RELEASE_QUERY=$RELEASE_QUERY
+          GPT_API_KEY=$GPT_API_KEY
+          PAT=$SYSTEM_ACCESSTOKEN
+          SOFTWARE_SUMMARY=$SOFTWARE_SUMMARY
+          DESIRED_WORK_ITEM_TYPES=$DESIRED_WORK_ITEM_TYPES
+          OUTPUT_FOLDER=$OUTPUT_FOLDER
+          DEVOPS_API_VERSION=6.0
+          EOF
+      displayName: "Create .env file"
+    - task: CmdLine@2
+      displayName: "Run release notes script"
+      inputs:
+        script: |
+          cd script-repo
+          source .venv/bin/activate
+          python main.py
+    - task: CmdLine@2
+      displayName: "Commit and push release notes"
+      inputs:
+        script: |
+          cd script-repo
+          git config --global user.email "$(Build.RequestedForEmail)"
+          git config --global user.name "$(Build.RequestedFor)"
+          git remote set-url origin $(COMMIT_REPO_PATH)
+          git checkout -b $(COMMIT_BRANCH)
+          git add $(OUTPUT_FOLDER)/*
+          git commit -m "Add release notes for version $(RELEASE_VERSION)"
+          git push origin $(COMMIT_BRANCH)
 
-steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: "3.x"
-      addToPath: true
-
-  - script: |
-      git clone --branch $(GITHUB_TAG) $(GITHUB_REPO_URL) script-repo
-    displayName: "Clone GitHub Repository"
-
-  - script: |
-      cd script-repo
-      python -m venv .venv
-      source .venv/bin/activate
-      pip install -r requirements.txt
-    displayName: "Set up Python environment"
-
-  - task: PythonScript@0
-    inputs:
-      scriptSource: 'filePath'
-      scriptPath: 'script-repo/main.py'
-  - task: Bash@3
-    inputs:
-      targetType: 'inline'
-      script: |
-        cat <<EOF > script-repo/.env
-        ORG_NAME=$DEVOPS_ORGANISATION_NAME
-        PROJECT_NAME=$PROJECT_NAME
-        SOLUTION_NAME=$SOLUTION_NAME
-        RELEASE_VERSION=$RELEASE_VERSION
-        RELEASE_QUERY=$RELEASE_QUERY
-        GPT_API_KEY=$GPT_API_KEY
-        PAT=$SYSTEM_ACCESSTOKEN
-        SOFTWARE_SUMMARY=$SOFTWARE_SUMMARY
-        DESIRED_WORK_ITEM_TYPES=$DESIRED_WORK_ITEM_TYPES
-        OUTPUT_FOLDER=$OUTPUT_FOLDER
-        DEVOPS_API_VERSION=6.0
-        EOF
-    displayName: "Create .env file"
-
-  - script: |
-      cd script-repo
-      source .venv/bin/activate
-      python main.py
-    displayName: "Run release notes script"
-
-  - script: |
-      cd script-repo
-      git config --global user.email "$(Build.RequestedForEmail)"
-      git config --global user.name "$(Build.RequestedFor)"
-      git remote set-url origin $(COMMIT_REPO_PATH)
-      git checkout -b $(COMMIT_BRANCH)
-      git add $(OUTPUT_FOLDER)/*
-      git commit -m "Add release notes for version $(RELEASE_VERSION)"
-      git push origin $(COMMIT_BRANCH)
-    displayName: "Commit and push release notes"
