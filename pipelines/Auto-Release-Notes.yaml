@@ -69,8 +69,8 @@ steps:
       git config --global user.name "$(Build.RequestedFor)"
       git remote set-url origin $(COMMIT_REPO_PATH)
       git checkout -b $(COMMIT_BRANCH)
+      git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" pull origin $(COMMIT_BRANCH)
       git add "$(OUTPUT_FOLDER)/*"
       git commit -m "Add release notes for version $(RELEASE_VERSION)"
-      git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" pull origin $(COMMIT_BRANCH)
       git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin $(COMMIT_BRANCH)
     displayName: 'Commit and push release notes'
