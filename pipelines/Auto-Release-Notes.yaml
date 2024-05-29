@@ -52,6 +52,7 @@ steps:
       OUTPUT_FOLDER=$OUTPUT_FOLDER
       DEVOPS_API_VERSION=6.0
       EOF
+      print("File Content:\n", open('.env', 'r').read())
     displayName: 'Create .env file'
 
   - script: |
