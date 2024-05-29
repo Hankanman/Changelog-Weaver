@@ -203,14 +203,14 @@ if __name__ == "__main__":
         SOLUTION_NAME,
         RELEASE_VERSION,
         RELEASE_QUERY,
-        PAT,
         GPT_API_KEY,
+        PAT,
         MODEL,
         MODEL_BASE_URL,
         DEVOPS_BASE_URL,
+        SOFTWARE_SUMMARY,
         DESIRED_WORK_ITEM_TYPES,
         OUTPUT_FOLDER,
-        SOFTWARE_SUMMARY,
         DEVOPS_API_VERSION,
     ]
     if any(not var for var in required_env_vars):
