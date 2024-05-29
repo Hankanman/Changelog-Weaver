@@ -28,6 +28,7 @@ class ResponseStatus(Enum):
     SUCCESS = 200
     RATE_LIMIT = 429
     ERROR = 500
+    NOT_FOUND = 404
 
 
 class OutputFormat(Enum):
