@@ -53,6 +53,7 @@ steps:
       EOF
     env:
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      GPT_API_KEY: $(GPT_API_KEY)
     displayName: 'Create .env file'
 
   - script: |
