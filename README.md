@@ -2,6 +2,10 @@
 
 This script generates release notes for a given release version of a solution in Azure DevOps. It retrieves work items from Azure DevOps, summarizes them using GPT, and outputs the release notes in Markdown and HTML formats.
 
+## Requirements
+
+You will need a PAID Open AI API key to run the script, support for other methods will come in future releases
+
 ## Run as Azure DevOps Pipeline
 
 1. Copy the `Auto-Release-Notes.yml` file from [the pipelines directory of this repo](/pipelines)
