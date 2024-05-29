@@ -28,16 +28,22 @@ steps:
       addToPath: true
 
   - script: |
-      git clone --branch $(GITHUB_TAG) $(GITHUB_REPO_URL)
+      git clone --branch $(GITHUB_TAG) $(GITHUB_REPO_URL) script-repo
     displayName: "Clone GitHub Repository"
 
   - script: |
+      git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)"  clone $(COMMIT_REPO_PATH) target-repo
+    displayName: 'Clone Target Repository'
+
+  - script: |
+      cd script-repo
       python -m venv .venv
       source .venv/bin/activate
       pip install -r requirements.txt
     displayName: "Set up Python environment"
 
   - script: |
+      cd script-repo
       cat <<EOF > .env
       ORG_NAME=$DEVOPS_ORGANISATION_NAME
       PROJECT_NAME=$PROJECT_NAME
@@ -60,16 +66,18 @@ steps:
     displayName: 'Create .env file'
 
   - script: |
+      cd script-repo
       source .venv/bin/activate
       python main.py
     displayName: "Run release notes script"
 
+
   - script: |
+      cp -r script-repo/$(OUTPUT_FOLDER)/* target-repo/$(OUTPUT_FOLDER)/
+      cd target-repo
       git config --global user.email "$(Build.RequestedForEmail)"
       git config --global user.name "$(Build.RequestedFor)"
-      git remote set-url origin $(COMMIT_REPO_PATH)
-      git checkout -b $(COMMIT_BRANCH)
-      git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" pull --rebase --strategy-option=theirs origin $(COMMIT_BRANCH)
+      git checkout -b $(COMMIT_BRANCH) || git checkout $(COMMIT_BRANCH)
       git add "$(OUTPUT_FOLDER)/*"
       git commit -m "Add release notes for version $(RELEASE_VERSION)"
       git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin $(COMMIT_BRANCH)
