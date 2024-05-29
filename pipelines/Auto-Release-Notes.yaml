@@ -39,7 +39,7 @@ steps:
     displayName: "Set up Python environment"
 
   - script: |
-      cat <<EOF > script-repo/.env
+      cat <<EOF > .env
       ORG_NAME=$DEVOPS_ORGANISATION_NAME
       PROJECT_NAME=$PROJECT_NAME
       SOLUTION_NAME=$SOLUTION_NAME
