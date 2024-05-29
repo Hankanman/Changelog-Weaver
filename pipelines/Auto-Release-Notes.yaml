@@ -8,16 +8,16 @@ pool:
   vmImage: "ubuntu-latest"
 
 variables:
-  # The name of the DevOps organization.
-  ORG_NAME: "YOUR_ORG_NAME" #REPLACEME
-  # The name of the DevOps project.
-  PROJECT_NAME: "YOUR_PROJECT_NAME" #REPLACEME
-  # The name of the solution.
-  SOLUTION_NAME: "YOUR_SOLUTION_NAME" #REPLACEME
-  # The query to retrieve the release information.
-  RELEASE_QUERY: "DEVOPS_WORK_ITEM_QUERY_GUID" #REPLACEME
-  # A summary of the software.
-  SOFTWARE_SUMMARY: "LONG_SOFTWARE_SUMMARY" #REPLACEME
+  # The Organisation Name of the Azure DevOps organisation to use i.e. "contoso" from "https://dev.azure.com/contoso"
+  ORG_NAME: "YOUR_ORG_NAME"
+  # The plain text name of the project to use (not the url encoded version) i.e. "My Project" from "https://dev.azure.com/contoso/My%20Project"
+  PROJECT_NAME: "YOUR_PROJECT_NAME"
+  # The name of the solution. This will appear as part of the title of the notes document
+  SOLUTION_NAME: "YOUR_SOLUTION_NAME"
+  # The query id for the release notes query setup in Azure DevOps as a GUID i.e. "f5b6e2af-8f0c-4f6c-9a8b-3f3f2b7e0c1e" from "https://dev.azure.com/contoso/My%20Project/_queries/query/f5b6e2af-8f0c-4f6c-9a8b-3f3f2b7e0c1e"
+  RELEASE_QUERY: "DEVOPS_WORK_ITEM_QUERY_GUID"
+  # Describe the software or project that these release notes are for, this provides context to GPT and the notes being written
+  SOFTWARE_SUMMARY: "LONG_SOFTWARE_SUMMARY"
   # The API key for the GPT service (stored as a secret) DO NOT MODIFY THE BELOW OR ENTER YOUR API KEY HERE.
   MODEL_API_KEY: $(Model API Key)
 
@@ -76,19 +76,19 @@ steps:
   - script: |
       cd script-repo
       cat <<EOF > .env
-      ORG_NAME=$DEVOPS_ORGANISATION_NAME
-      PROJECT_NAME=$PROJECT_NAME
-      SOLUTION_NAME=$SOLUTION_NAME
+      ORG_NAME="$ORG_NAME"
+      PROJECT_NAME="$PROJECT_NAME"
+      SOLUTION_NAME="$SOLUTION_NAME"
       RELEASE_VERSION=${{parameters.majorVersion}}.${{parameters.minorVersion}}.$(date '+%Y%m%d').1
       RELEASE_QUERY=$RELEASE_QUERY
       GPT_API_KEY=$GPT_API_KEY
       PAT=$SYSTEM_ACCESSTOKEN
-      MODEL=${{parameters.model}}
+      MODEL="${{parameters.model}}"
       MODEL_BASE_URL=${{parameters.modelBaseUrl}}
       DEVOPS_BASE_URL="https://dev.azure.com"
-      SOFTWARE_SUMMARY=$SOFTWARE_SUMMARY
-      DESIRED_WORK_ITEM_TYPES=${{parameters.desiredWorkItemTypes}}
-      OUTPUT_FOLDER=${{parameters.outputFolder}}
+      SOFTWARE_SUMMARY="$SOFTWARE_SUMMARY"
+      DESIRED_WORK_ITEM_TYPES="${{parameters.desiredWorkItemTypes}}"
+      OUTPUT_FOLDER="${{parameters.outputFolder}}"
       DEVOPS_API_VERSION="6.0"
       EOF
     env:

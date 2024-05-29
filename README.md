@@ -22,15 +22,15 @@ This script generates release notes for a given release version of a solution in
 
     ```yaml
     variables:
-      # The name of the DevOps organization.
+      # The Organisation Name of the Azure DevOps organisation to use i.e. "contoso" from "https://dev.azure.com/contoso"
       ORG_NAME: "YOUR_ORG_NAME"
-      # The name of the DevOps project.
+      # The plain text name of the project to use (not the url encoded version) i.e. "My Project" from "https://dev.azure.com/contoso/My%20Project"
       PROJECT_NAME: "YOUR_PROJECT_NAME"
-      # The name of the solution.
+      # The name of the solution. This will appear as part of the title of the notes document
       SOLUTION_NAME: "YOUR_SOLUTION_NAME"
-      # The query to retrieve the release information.
+      # The query id for the release notes query setup in Azure DevOps as a GUID i.e. "f5b6e2af-8f0c-4f6c-9a8b-3f3f2b7e0c1e" from "https://dev.azure.com/contoso/My%20Project/_queries/query/f5b6e2af-8f0c-4f6c-9a8b-3f3f2b7e0c1e"
       RELEASE_QUERY: "DEVOPS_WORK_ITEM_QUERY_GUID"
-      # A summary of the software.
+      # Describe the software or project that these release notes are for, this provides context to GPT and the notes being written
       SOFTWARE_SUMMARY: "LONG_SOFTWARE_SUMMARY"
       # The API key for the GPT service (stored as a secret) DO NOT MODIFY THE BELOW OR ENTER YOUR API KEY HERE.
       MODEL_API_KEY: $(Model API Key)

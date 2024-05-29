@@ -182,6 +182,13 @@ async def summarise(prompt: str):
                     logging.warning(f"Rate limit hit, retrying in {delay} seconds...")
                     await asyncio.sleep(delay)
                     retry_count += 1
+                elif e.status == ResponseStatus.ERROR.value:
+                    delay = initial_delay * (2**retry_count)
+                    logging.warning(
+                        f"Too many requests, retrying in {delay} seconds..."
+                    )
+                    await asyncio.sleep(delay)
+                    retry_count += 1
                 else:
                     logging.error("Request failed", exc_info=True)
                     raise e
@@ -248,15 +255,31 @@ async def getWorkItems(
     )
     async with session.get(uri) as response:
         query_response = await response.json()
-        ids = ",".join(str(item["id"]) for item in query_response["workItems"])
+        if response.status != 200:
+            logging.error(query_response["message"])
+            exit(1)
+        ids = [str(item["id"]) for item in query_response["workItems"]]
 
+        # Split ids into chunks of 199
+        chunks = [ids[i:i + 199] for i in range(0, len(ids), 199)]
+
+        # Fetch work items in batches
+        work_items = []
+        for chunk in chunks:
+            ids_str = ",".join(chunk)
+            work_items_chunk = await fetch_work_items(session, org_name, project_name, ids_str)
+            work_items.extend(work_items_chunk)
+
+        print(f"Found {len(work_items)} work items")
+        return work_items
+    
+async def fetch_work_items(session, org_name: str, project_name: str, ids: List[str]):
     uri = DEVOPS_BASE_URL + APIEndpoint.WORK_ITEMS.value.format(
         org_name=org_name, project_name=project_name, ids=ids
     )
     async with session.get(uri) as response:
         work_items_response = await response.json()
         return work_items_response["value"]
-
 
 async def updateItemGroup(
     summary_notes_ref: str,
