@@ -1,70 +1,70 @@
 # azure-pipelines.yml
-trigger: none
+trigger:
+ branches:
+   include:
+     - main
 
 pool:
   vmImage: "ubuntu-latest"
 
+variables:
+  # The name of the DevOps organization.
+  ORG_NAME: "YOUR_ORG_NAME" #REPLACEME
+  # The name of the DevOps project.
+  PROJECT_NAME: "YOUR_PROJECT_NAME" #REPLACEME
+  # The name of the solution.
+  SOLUTION_NAME: "YOUR_SOLUTION_NAME" #REPLACEME
+  # The query to retrieve the release information.
+  RELEASE_QUERY: "DEVOPS_WORK_ITEM_QUERY_GUID" #REPLACEME
+  # A summary of the software.
+  SOFTWARE_SUMMARY: "LONG_SOFTWARE_SUMMARY" #REPLACEME
+  # The API key for the GPT service (stored as a secret) DO NOT MODIFY THE BELOW OR ENTER YOUR API KEY HERE.
+  MODEL_API_KEY: $(Model API Key)
+
 parameters:
-  - name: desiredWorkItemTypes
+  - name: majorVersion
     type: string
-    default: "Bug,User Story,Task"
-  - name: model
+    default: "1"
+    displayName: "Major Version"
+  - name: minorVersion
     type: string
-    default: "gpt-4o"
-  - name: modelBaseUrl
-    type: string
-    default: "https://api.openai.com/v1"
-  - name: devopsBaseUrl
-    type: string
-    default: "https://dev.azure.com"
+    default: "0"
+    displayName: "Minor Version"
   - name: outputFolder
     type: string
     default: "Releases"
-  - name: githubRepoUrl
+    displayName: "Output Folder Name"
+  - name: desiredWorkItemTypes
     type: string
-    default: "https://github.com/hankanman/Auto-Release-Notes.git"
-  - name: githubTag
+    default: "Bug,User Story,Task"
+    displayName: "Desired Work Item Types"
+  - name: commitBranch
     type: string
     default: "main"
-  - name: devOpsAPIVersion
+    displayName: "Target Repo Branch"
+  - name: model
     type: string
-    default: "6.0"
-
-variables:
-  # The name of the DevOps organization.
-  ORG_NAME: $(DevOps Organisation Name)
-  # The name of the DevOps project.
-  PROJECT_NAME: $(DevOps Project Name)
-  # The name of the solution.
-  SOLUTION_NAME: $(Solution Name)
-  # The version of the release.
-  RELEASE_VERSION: $(Release Version)
-  # The query to retrieve the release information.
-  RELEASE_QUERY: $(Release Query)
-  # The API key for the GPT service (stored as a secret).
-  MODEL_API_KEY: $(Model API Key)
-  # A summary of the software.
-  SOFTWARE_SUMMARY: $(Software Summary)
-  # The GitHub tag or branch to generate release notes for.
-  GITHUB_TAG: $(GitHub Tag)
-  # The repository path to commit the release notes.
-  COMMIT_REPO_PATH: $(Commit Repo Url)
-  # The branch to commit the release notes to.
-  COMMIT_BRANCH: $(Commit Branch)
+    default: "gpt-4o"
+    displayName: "AI Model"
+  - name: modelBaseUrl
+    type: string
+    default: "https://api.openai.com/v1"
+    displayName: "AI Model Base URL"
 
 steps:
+  - checkout: self
+    persistCredentials: true
+    fetchDepth: 1
+    path: target-repo
+
   - task: UsePythonVersion@0
     inputs:
       versionSpec: "3.x"
       addToPath: true
 
   - script: |
-      git clone --branch ${{parameters.githubTag}}  ${{parameters.githubRepoUrl}} script-repo
+      git clone --branch main https://github.com/hankanman/Auto-Release-Notes.git script-repo
     displayName: "Clone GitHub Repository"
-
-  - script: |
-      git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)"  clone $(COMMIT_REPO_PATH) target-repo
-    displayName: 'Clone Target Repository'
 
   - script: |
       cd script-repo
@@ -79,17 +79,17 @@ steps:
       ORG_NAME=$DEVOPS_ORGANISATION_NAME
       PROJECT_NAME=$PROJECT_NAME
       SOLUTION_NAME=$SOLUTION_NAME
-      RELEASE_VERSION=$RELEASE_VERSION
+      RELEASE_VERSION=${{parameters.majorVersion}}.${{parameters.minorVersion}}.$(date '+%Y%m%d').1
       RELEASE_QUERY=$RELEASE_QUERY
       GPT_API_KEY=$GPT_API_KEY
       PAT=$SYSTEM_ACCESSTOKEN
       MODEL=${{parameters.model}}
       MODEL_BASE_URL=${{parameters.modelBaseUrl}}
-      DEVOPS_BASE_URL=${{parameters.devopsBaseUrl}}
+      DEVOPS_BASE_URL="https://dev.azure.com"
       SOFTWARE_SUMMARY=$SOFTWARE_SUMMARY
       DESIRED_WORK_ITEM_TYPES=${{parameters.desiredWorkItemTypes}}
       OUTPUT_FOLDER=${{parameters.outputFolder}}
-      DEVOPS_API_VERSION=${{parameters.devOpsAPIVersion}}
+      DEVOPS_API_VERSION="6.0"
       EOF
     env:
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
@@ -104,13 +104,13 @@ steps:
 
 
   - script: |
-      mkdir -p "target-repo/${{parameters.outputFolder}}"
-      cp -r "script-repo/${{parameters.outputFolder}}/"* "target-repo/${{parameters.outputFolder}}/"
+      mkdir -p "${{parameters.outputFolder}}"
+      cp -r "script-repo/${{parameters.outputFolder}}/"* "${{parameters.outputFolder}}/"
       cd target-repo
       git config --global user.email "$(Build.RequestedForEmail)"
       git config --global user.name "$(Build.RequestedFor)"
-      git checkout -b $(COMMIT_BRANCH) || git checkout $(COMMIT_BRANCH)
+      git checkout -b ${{parameters.commitBranch}} || git checkout ${{parameters.commitBranch}}
       git add "${{parameters.outputFolder}}/*"
-      git commit -m "Add release notes for version $(RELEASE_VERSION)"
-      git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin $(COMMIT_BRANCH)
+      git commit -m "Add release notes for version ${{parameters.majorVersion}}.${{parameters.minorVersion}}.$(date '+%Y%m%d').1"
+      git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin ${{parameters.commitBranch}}
     displayName: 'Commit and push release notes'
