@@ -72,8 +72,6 @@ steps:
       git checkout -b $(COMMIT_BRANCH)
       git add "$(OUTPUT_FOLDER)/*"
       git commit -m "Add release notes for version $(RELEASE_VERSION)"
-      git -c http.extraheader="AUTHORIZATION: bearer $(SYSTEM_ACCESSTOKEN)" pull --rebase origin $(COMMIT_BRANCH)
-      git -c http.extraheader="AUTHORIZATION: bearer $(SYSTEM_ACCESSTOKEN)" push origin $(COMMIT_BRANCH)
+      git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" pull --rebase origin $(COMMIT_BRANCH)
+      git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin $(COMMIT_BRANCH)
     displayName: 'Commit and push release notes'
-    env:
-      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
