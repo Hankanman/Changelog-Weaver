@@ -1,13 +1,13 @@
-# config.py
+""" Configuration module for the application. """
+import os
 from pathlib import Path
 from dotenv import load_dotenv
-import os
 
 # Path to the .env file
 env_path = Path(".") / ".env"
 
 # Default values for the .env file
-default_env_content = """# Azure DevOps and OpenAI Configuration
+DEFAULT_ENV = """# Azure DevOps and OpenAI Configuration
 ORG_NAME=
 PROJECT_NAME=
 SOLUTION_NAME=
@@ -26,8 +26,8 @@ DEVOPS_API_VERSION=6.0
 
 # Check if .env file exists, if not, create it with default values
 if not env_path.exists():
-    with open(env_path, "w") as env_file:
-        env_file.write(default_env_content)
+    with open(env_path, "w", encoding="utf-8") as env_file:
+        env_file.write(DEFAULT_ENV)
 
 # Load environment variables from the .env file
 load_dotenv(dotenv_path=env_path)

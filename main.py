@@ -1,11 +1,11 @@
-# main.py
-import aiohttp
-import asyncio
+""" Main script to write release notes based on Azure DevOps work items. """
 import base64
 import logging as log
 from pathlib import Path
 from urllib.parse import quote
 from collections import defaultdict
+import asyncio
+import aiohttp
 from modules.config import (
     ORG_NAME,
     PROJECT_NAME,
@@ -33,7 +33,7 @@ from modules.utils import (
 )
 
 
-async def write_release_notes(
+async def writeReleaseNotes(
     query_id: str, section_header: str, summarize_items: bool, output_html: bool
 ):
     """
@@ -53,9 +53,13 @@ async def write_release_notes(
     summary_notes = ""
     section_headers = []
 
-    with open(file_md, "w", encoding="utf-8") as file:
-        file.write(
-            f"# Release Notes for {SOLUTION_NAME} version v{RELEASE_VERSION}\n\n## Summary\n\n<NOTESSUMMARY>\n\n## Quick Links\n\n<TABLEOFCONTENTS>\n"
+    with open(file_md, "w", encoding="utf-8") as md_file:
+        md_file.write(
+            f"# Release Notes for {SOLUTION_NAME} version v{RELEASE_VERSION}\n\n"
+            f"## Summary\n\n"
+            f"<NOTESSUMMARY>\n\n"
+            f"## Quick Links\n\n"
+            f"<TABLEOFCONTENTS>\n"
         )
 
     section_headers.append(section_header)
@@ -63,8 +67,8 @@ async def write_release_notes(
         work_item_type_to_icon = await getWorkItemIcons(session, ORG_NAME, PROJECT_NAME)
 
         # Write the section header to the file
-        with open(file_md, "a", encoding="utf-8") as file:
-            file.write(f"## {section_header}\n")
+        with open(file_md, "a", encoding="utf-8") as md_file:
+            md_file.write(f"## {section_header}\n")
 
         work_items = await getWorkItems(session, ORG_NAME, PROJECT_NAME, query_id)
 
@@ -85,7 +89,7 @@ async def write_release_notes(
                 parent_id = parent_link["url"].split("/")[-1]
                 parent_child_groups[parent_id].append(item)
             else:
-                log.info(f"Work item {item['id']} has no parent")
+                log.info("Work item %s has no parent", item["id"])
                 item["fields"][WorkItemField.PARENT.value] = 0
                 parent_child_groups["0"].append(item)
 
@@ -119,7 +123,7 @@ async def write_release_notes(
         }
 
         for work_item_type in DESIRED_WORK_ITEM_TYPES:
-            log.info(f"Processing {work_item_type}s")
+            log.info("Processing %s s", {work_item_type})
 
             parent_ids_of_type = [
                 pid
@@ -132,7 +136,7 @@ async def write_release_notes(
                 parent_title = cleanString(
                     parent_work_item["fields"][WorkItemField.TITLE.value]
                 )
-                log.info(f"{work_item_type} | {parent_id} | {parent_title}")
+                log.info("%s | %s | %s", work_item_type, parent_id, parent_title)
 
                 parent_link = parent_work_item["_links"]["html"]["href"]
                 parent_icon_url = work_item_type_to_icon.get(work_item_type)["iconUrl"]
@@ -143,7 +147,7 @@ async def write_release_notes(
                     if wi["fields"].get(WorkItemField.PARENT.value) == int(parent_id)
                 ]
                 if not child_items:
-                    log.info(f"No child items found for parent {parent_id}")
+                    log.info("No child items found for parent %s", parent_id)
 
                 summary_notes += f"- {parent_title}\n"
                 if parent_id != "0":
@@ -162,8 +166,8 @@ async def write_release_notes(
                     ].append(item)
 
                 if grouped_child_items:
-                    with open(file_md, "a", encoding="utf-8") as file:
-                        file.write(parent_header)
+                    with open(file_md, "a", encoding="utf-8") as file_output:
+                        file_output.write(parent_header)
                     await updateItemGroup(
                         summary_notes,
                         grouped_child_items,
@@ -202,10 +206,10 @@ if __name__ == "__main__":
         )
         exit(1)
     else:
-        with open(".env", "r") as file:
+        with open(".env", "r", encoding="utf-8") as file:
             # Read the content of the file
             file_content = file.read()
 
             # Print the content
             print(file_content)
-        asyncio.run(write_release_notes(RELEASE_QUERY, "Resolved Issues", True, True))
+        asyncio.run(writeReleaseNotes(RELEASE_QUERY, "Resolved Issues", True, True))

@@ -1,11 +1,12 @@
-# utils.py
-import asyncio
-import aiohttp
+""" This module contains utility functions for the script. """
+
 import re
 import logging
 from pathlib import Path
 from typing import List, Dict, Any
 from dataclasses import dataclass
+import asyncio
+import aiohttp
 from modules.enums import (
     WorkItemType,
     LogLevel,
@@ -154,7 +155,9 @@ async def summarise(prompt: str):
     token_count = countTokens(prompt)
     if model_object and token_count > model_object["Tokens"]:
         logging.warning(
-            f"The prompt contains too many tokens for the selected model {token_count}/{model_object['Tokens']}. Please reduce the size of the prompt."
+            "The prompt contains too many tokens for the selected model %s/%s. Please reduce the size of the prompt.",
+            token_count,
+            model_object["Tokens"],
         )
         return "Prompt too large"
 
@@ -179,18 +182,25 @@ async def summarise(prompt: str):
             except aiohttp.ClientResponseError as e:
                 if e.status == ResponseStatus.RATE_LIMIT.value:
                     delay = initial_delay * (2**retry_count)
-                    logging.warning(f"AI API Error (Too Many Requests), retrying in {delay} seconds...")
+                    logging.warning(
+                        "AI API Error (Too Many Requests), retrying in %s seconds...",
+                        delay,
+                    )
                     await asyncio.sleep(delay)
                     retry_count += 1
                 elif e.status == ResponseStatus.ERROR.value:
                     delay = initial_delay * (2**retry_count)
                     logging.warning(
-                        f"AI API Error (Internal Server Error), retrying in {delay} seconds..."
+                        "AI API Error (Internal Server Error), retrying in %s seconds...",
+                        delay,
                     )
                     await asyncio.sleep(delay)
                     retry_count += 1
                 elif e.status == ResponseStatus.NOT_FOUND.value:
-                    logging.error("AI API Key Error, this is usually because you are using a free account rather than a paid one. Please check your API key and try again.", exc_info=True)
+                    logging.error(
+                        "AI API Key Error, this is usually because you are using a free account rather than a paid one.",
+                        exc_info=True,
+                    )
                     exit(1)
                 else:
                     logging.error("Request failed", exc_info=True)
@@ -221,21 +231,21 @@ async def getWorkItemIcons(
             {"name": item["name"], "iconUrl": item["icon"]["url"]}
             for item in response_json["value"]
         ]
-        workItemIcon = {}
+        work_item_icon = {}
         for icon in icons:
             color_match = re.search(r"color=([a-zA-Z0-9]+)", icon["iconUrl"])
             color = color_match.group(1) if color_match else None
-            workItemIcon[icon["name"]] = {"iconUrl": icon["iconUrl"], "color": color}
+            work_item_icon[icon["name"]] = {"iconUrl": icon["iconUrl"], "color": color}
 
         # Ensure "Other" work item type has a default icon
-        workItemIcon[WorkItemType.OTHER.value] = workItemIcon.get(
+        work_item_icon[WorkItemType.OTHER.value] = work_item_icon.get(
             WorkItemType.OTHER.value,
             {
                 "iconUrl": "https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_clipboard_issue?color=577275&v=2",
                 "color": "577275",
             },
         )
-        return workItemIcon
+        return work_item_icon
 
 
 async def getWorkItems(
@@ -264,19 +274,34 @@ async def getWorkItems(
         ids = [str(item["id"]) for item in query_response["workItems"]]
 
         # Split ids into chunks of 199
-        chunks = [ids[i:i + 199] for i in range(0, len(ids), 199)]
+        chunks = [ids[i : i + 199] for i in range(0, len(ids), 199)]
 
         # Fetch work items in batches
         work_items = []
         for chunk in chunks:
             ids_str = ",".join(chunk)
-            work_items_chunk = await fetch_work_items(session, org_name, project_name, ids_str)
+            work_items_chunk = await fetchItems(
+                session, org_name, project_name, ids_str
+            )
             work_items.extend(work_items_chunk)
 
         print(f"Found {len(work_items)} work items")
         return work_items
-    
-async def fetch_work_items(session, org_name: str, project_name: str, ids: List[str]):
+
+
+async def fetchItems(session, org_name: str, project_name: str, ids: List[str]):
+    """
+    Fetches work items from the specified organization and project using the provided session.
+
+    Args:
+        session (aiohttp.ClientSession): The session to use for making HTTP requests.
+        org_name (str): The name of the organization.
+        project_name (str): The name of the project.
+        ids (List[str]): The list of work item IDs to fetch.
+
+    Returns:
+        List[dict]: A list of work items retrieved from the API response.
+    """
     uri = DEVOPS_BASE_URL + APIEndpoint.WORK_ITEMS.value.format(
         org_name=org_name, project_name=project_name, ids=ids
     )
@@ -284,10 +309,11 @@ async def fetch_work_items(session, org_name: str, project_name: str, ids: List[
         work_items_response = await response.json()
         return work_items_response["value"]
 
+
 async def updateItemGroup(
     summary_notes_ref: str,
     grouped_work_items: Dict[str, List[Dict[str, Any]]],
-    workItemIcon: Dict[str, Any],
+    work_item_icon: Dict[str, Any],
     file_md: Path,
     session: aiohttp.ClientSession,
     summarize_items: bool,
@@ -298,7 +324,7 @@ async def updateItemGroup(
     Args:
         summary_notes_ref (str): The reference to the summary notes.
         grouped_work_items (Dict[str, List[Dict[str, Any]]]): A dictionary containing the grouped work items.
-        workItemIcon (Dict[str, Any]): A dictionary containing the work item icons.
+        work_item_icon (Dict[str, Any]): A dictionary containing the work item icons.
         file_md (Path): The path to the output file.
         session (aiohttp.ClientSession): The aiohttp client session.
         summarize_items (bool): A flag indicating whether to summarize the items.
@@ -307,8 +333,8 @@ async def updateItemGroup(
         None
     """
     for work_item_type, items in grouped_work_items.items():
-        logging.info(f" Writing notes for {work_item_type}s")
-        group_icon_url = workItemIcon[work_item_type]["iconUrl"]
+        logging.info(" Writing notes for %ss", work_item_type)
+        group_icon_url = work_item_icon[work_item_type]["iconUrl"]
         summary_notes_ref += f" - {work_item_type}s: \n"
 
         with open(file_md, "a", encoding="utf-8") as file:
@@ -317,7 +343,7 @@ async def updateItemGroup(
             )
 
         for child_item in items:
-            id = child_item["id"]
+            work_item_id = child_item["id"]
             url = child_item["_links"]["html"]["href"]
             title = cleanString(child_item["fields"][WorkItemField.TITLE.value])
             repro = cleanString(
@@ -349,7 +375,7 @@ async def updateItemGroup(
                 summary = ""
 
             with open(file_md, "a", encoding="utf-8") as file:
-                file.write(f"- [#{id}]({url}) **{title.strip()}**{summary}\n")
+                file.write(f"- [#{work_item_id}]({url}) **{title.strip()}**{summary}\n")
 
 
 async def finaliseNotes(
@@ -374,7 +400,9 @@ async def finaliseNotes(
     """
     logging.info("Writing final summary and table of contents...")
     final_summary = await summarise(
-        f"{SUMMARY_PROMPT}{SOFTWARE_SUMMARY}\nThe following is a summary of the work items completed in this release:\n{summary_notes}\nYour response should be as concise as possible"
+        f"{SUMMARY_PROMPT}{SOFTWARE_SUMMARY}\n"
+        f"The following is a summary of the work items completed in this release:\n"
+        f"{summary_notes}\nYour response should be as concise as possible"
     )
     with open(file_md, "r", encoding="utf-8") as file:
         file_contents = file.read()
