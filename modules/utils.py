@@ -190,12 +190,8 @@ async def summarise(prompt: str):
                     await asyncio.sleep(delay)
                     retry_count += 1
                 elif e.status == ResponseStatus.NOT_FOUND.value:
-                    delay = initial_delay * (2**retry_count)
-                    logging.warning(
-                        f"AI API Error (Not Found), retrying in {delay} seconds..."
-                    )
-                    await asyncio.sleep(delay)
-                    retry_count += 1
+                    logging.error("AI API Key Error, this is usually because you are using a free account rather than a paid one. Please check your API key and try again.", exc_info=True)
+                    exit(1)
                 else:
                     logging.error("Request failed", exc_info=True)
                     raise e
