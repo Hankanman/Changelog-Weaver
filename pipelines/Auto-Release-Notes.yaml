@@ -42,12 +42,12 @@ stages:
       inputs:
         versionSpec: "3.x"
         addToPath: true
-    - task: CmdLine@2
+    - task: Bash@3
       displayName: "Clone GitHub Repository"
       inputs:
         script: |
           git clone --branch $(GITHUB_TAG) $(GITHUB_REPO_URL) script-repo
-    - task: CmdLine@2
+    - task: Bash@3
       displayName: "Set up Python environment"
       inputs:
         script: |
@@ -55,15 +55,12 @@ stages:
           python -m venv .venv
           source .venv/bin/activate
           pip install -r requirements.txt
-    - task: PythonScript@0
-      inputs:
-        scriptSource: 'filePath'
-        scriptPath: 'script-repo/main.py'
     - task: Bash@3
       inputs:
         targetType: 'inline'
         script: |
-          cat <<EOF > script-repo/.env
+          cd script-repo
+          cat <<EOF > .env
           ORG_NAME=$DEVOPS_ORGANISATION_NAME
           PROJECT_NAME=$PROJECT_NAME
           SOLUTION_NAME=$SOLUTION_NAME
@@ -77,14 +74,15 @@ stages:
           DEVOPS_API_VERSION=6.0
           EOF
       displayName: "Create .env file"
-    - task: CmdLine@2
-      displayName: "Run release notes script"
+    - task: Bash@3
       inputs:
+        targetType: 'inline'
         script: |
           cd script-repo
           source .venv/bin/activate
           python main.py
-    - task: CmdLine@2
+      displayName: "Run Release Notes Script"
+    - task: Bash@3
       displayName: "Commit and push release notes"
       inputs:
         script: |
