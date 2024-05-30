@@ -28,6 +28,27 @@ from modules.config import (
 
 
 @dataclass
+class GroupUpdateConfig:
+    """
+    Represents the configuration for updating a group of work items.
+
+    Attributes:
+        summary_notes_ref (str): The reference to the summary notes.
+        grouped_work_items (Dict[str, List[Dict[str, Any]]]): A dictionary containing grouped work items.
+        work_item_icon (Dict[str, Any]): A dictionary containing work item icons.
+        file_md (Path): The path to the markdown file.
+        session (aiohttp.ClientSession): The client session for making HTTP requests.
+        summarize_items (bool): A flag indicating whether to summarize the items.
+    """
+    summary_notes_ref: str
+    grouped_work_items: Dict[str, List[Dict[str, Any]]]
+    work_item_icon: Dict[str, Any]
+    file_md: Path
+    session: aiohttp.ClientSession
+    summarize_items: bool
+
+
+@dataclass
 class WorkItem:
     """
     Represents a work item.
@@ -50,31 +71,49 @@ class WorkItem:
 
 
 @dataclass
-class Config:
-    """
-    Represents the configuration settings for the script.
+class AuthConfig:
+    """Represents authentication configuration settings."""
 
-    Attributes:
-        org_name (str): The name of the organization.
-        project_name (str): The name of the project.
-        pat (str): The personal access token for authentication.
-        gpt_api_key (str): The API key for the GPT service.
-        model (str): The name of the model.
-        model_base_url (str): The base URL for the model.
-        desired_work_item_types (List[WorkItemType]): A list of desired work item types.
-        output_folder (Path): The path to the output folder.
-        software_summary (str): A summary of the software.
-    """
+    pat: str
+    gpt_api_key: str
+
+
+@dataclass
+class DevOpsConfig:
+    """Represents Azure DevOps configuration settings."""
 
     org_name: str
     project_name: str
-    pat: str
-    gpt_api_key: str
+    devops_base_url: str
+    devops_api_version: str
+
+
+@dataclass
+class ModelConfig:
+    """Represents model configuration settings."""
+
     model: str
     model_base_url: str
-    desired_work_item_types: List[WorkItemType]
+    model_data: dict
+
+
+@dataclass
+class OutputConfig:
+    """Represents output configuration settings."""
+
     output_folder: Path
     software_summary: str
+
+
+@dataclass
+class ScriptConfig:
+    """Represents the overall configuration settings for the script."""
+
+    auth: AuthConfig
+    devops: DevOpsConfig
+    model: ModelConfig
+    desired_work_item_types: List[str]
+    output: OutputConfig
 
 
 def setup_logs(level: LogLevel = LogLevel.INFO):
@@ -322,75 +361,88 @@ async def fetch_items(session, org_name: str, project_name: str, ids: List[str])
         return work_items_response["value"]
 
 
-async def update_group(
-    summary_notes_ref: str,
-    grouped_work_items: Dict[str, List[Dict[str, Any]]],
-    work_item_icon: Dict[str, Any],
-    file_md: Path,
-    session: aiohttp.ClientSession,
-    summarize_items: bool,
-) -> None:
+async def update_group(config: GroupUpdateConfig) -> None:
     """
     Updates the release notes with details of grouped work items.
 
     Args:
-        summary_notes_ref (str): The reference to the summary notes.
-        grouped_work_items (Dict[str, List[Dict[str, Any]]]): A dictionary containing the grouped work items.
-        work_item_icon (Dict[str, Any]): A dictionary containing the work item icons.
-        file_md (Path): The path to the output file.
-        session (aiohttp.ClientSession): The aiohttp client session.
-        summarize_items (bool): A flag indicating whether to summarize the items.
+        config (GroupUpdateConfig): The configuration object containing necessary parameters.
 
     Returns:
         None
     """
-    for work_item_type, items in grouped_work_items.items():
+    for work_item_type, items in config.grouped_work_items.items():
         logging.info("Writing notes for %ss", work_item_type)
-        group_icon_url = work_item_icon[work_item_type]["iconUrl"]
-        summary_notes_ref += f" - {work_item_type}s: \n"
+        group_icon_url = config.work_item_icon[work_item_type]["iconUrl"]
+        config.summary_notes_ref += f" - {work_item_type}s: \n"
 
-        with open(file_md, "a", encoding="utf-8") as file:
-            file.write(
-                f"### <img src='{group_icon_url}' alt='icon' width='12' height='12'> {work_item_type}s\n"
-            )
+        append_to_file(
+            config.file_md,
+            f"### <img src='{group_icon_url}' alt='icon' width='12' height='12'> {work_item_type}s\n",
+        )
 
         for child_item in items:
-            work_item_id = child_item["id"]
-            url = child_item["_links"]["html"]["href"]
-            title = clean_string(child_item["fields"][WorkItemField.TITLE.value])
-            repro = clean_string(
-                child_item["fields"].get(WorkItemField.REPRO_STEPS.value, "")
+            await process_child_item(config, child_item)
+
+
+async def process_child_item(
+    config: GroupUpdateConfig, child_item: Dict[str, Any]
+) -> None:
+    """Processes and writes a single child item to the file."""
+    work_item_id = child_item["id"]
+    url = child_item["_links"]["html"]["href"]
+    title = clean_string(child_item["fields"][WorkItemField.TITLE.value])
+    repro = clean_string(child_item["fields"].get(WorkItemField.REPRO_STEPS.value, ""))
+    description = clean_string(
+        child_item["fields"].get(WorkItemField.DESCRIPTION.value, "")
+    )
+    comments = await fetch_comments(config.session, child_item)
+
+    summary = await get_summary(config, title, description, repro, comments)
+    config.summary_notes_ref += f"  - {title} | {summary} \n" if summary else ""
+
+    append_to_file(
+        config.file_md, f"- [#{work_item_id}]({url}) **{title.strip()}**{summary}\n"
+    )
+
+
+async def fetch_comments(
+    session: aiohttp.ClientSession, child_item: Dict[str, Any]
+) -> str:
+    """Fetches comments for a given child item."""
+    comments = ""
+    if "_links" in child_item and "workItemComments" in child_item["_links"]:
+        comment_link = child_item["_links"]["workItemComments"]["href"]
+        async with session.get(comment_link) as comment_response:
+            comments_response = await comment_response.json()
+            if comment_response.status != 200:
+                logging.error(comments_response["message"])
+                sys.exit(1)
+            comments = " ".join(
+                [
+                    clean_string(comment["text"])
+                    for comment in comments_response.get("comments", [])
+                ]
             )
-            description = clean_string(
-                child_item["fields"].get(WorkItemField.DESCRIPTION.value, "")
-            )
-            comments = ""
+    return comments
 
-            if "_links" in child_item and "workItemComments" in child_item["_links"]:
-                comment_link = child_item["_links"]["workItemComments"]["href"]
-                async with session.get(comment_link) as comment_response:
-                    comments_response = await comment_response.json()
-                    if comment_response.status != 200:
-                        logging.error(comments_response["message"])
-                        sys.exit(1)
-                    comments = " ".join(
-                        [
-                            clean_string(comment["text"])
-                            for comment in comments_response.get("comments", [])
-                        ]
-                    )
 
-            if summarize_items:
-                summary = await summarise(
-                    f"{ITEM_PROMPT}: {title} {description} {repro} {comments}"
-                )
-                summary_notes_ref += f"  - {title} | {summary} \n"
-                summary = f" - {summary}"
-            else:
-                summary = ""
+async def get_summary(
+    config: GroupUpdateConfig, title: str, description: str, repro: str, comments: str
+) -> str:
+    """Generates a summary for the given item."""
+    if config.summarize_items:
+        summary = await summarise(
+            f"{ITEM_PROMPT}: {title} {description} {repro} {comments}"
+        )
+        return f" - {summary}"
+    return ""
 
-            with open(file_md, "a", encoding="utf-8") as file:
-                file.write(f"- [#{work_item_id}]({url}) **{title.strip()}**{summary}\n")
+
+def append_to_file(file_path: Path, content: str) -> None:
+    """Appends content to the specified file."""
+    with open(file_path, "a", encoding="utf-8") as file:
+        file.write(content)
 
 
 async def finalise_notes(

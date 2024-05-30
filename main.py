@@ -32,6 +32,7 @@ from modules.utils import (
     get_items,
     update_group,
     finalise_notes,
+    GroupUpdateConfig,
 )
 
 
@@ -97,7 +98,9 @@ def encode_pat():
     return base64.b64encode(f":{PAT}".encode()).decode()
 
 
-async def fetch_parent_items(session, org_name_escaped, project_name_escaped, parent_ids):
+async def fetch_parent_items(
+    session, org_name_escaped, project_name_escaped, parent_ids
+):
     """Fetches parent work items from Azure DevOps."""
     parent_work_items = {}
     for parent_id in parent_ids:
@@ -184,12 +187,14 @@ async def process_items(config, work_items, parent_work_items):
             if grouped_child_items:
                 write_header(config.file_md, parent_header)
                 await update_group(
-                    summary_notes,
-                    grouped_child_items,
-                    config.work_item_type_to_icon,
-                    config.file_md,
-                    config.session,
-                    config.summarize_items,
+                    GroupUpdateConfig(
+                        summary_notes,
+                        grouped_child_items,
+                        config.work_item_type_to_icon,
+                        config.file_md,
+                        config.session,
+                        config.summarize_items,
+                    )
                 )
 
     return summary_notes
@@ -314,21 +319,14 @@ async def write_notes(
         summarize_items (bool): Flag indicating whether to summarize the work items.
         output_html (bool): Flag indicating whether to output the release notes in HTML format.
     """
-    org_name_escaped = quote(ORG_NAME)
-    project_name_escaped = quote(PROJECT_NAME)
-    devops_headers = {"Authorization": f"Basic {encode_pat()}"}
-
+    org_name_escaped, project_name_escaped, devops_headers = setup_environment()
     file_md, file_html = setup_files()
 
     async with aiohttp.ClientSession(headers=devops_headers) as session:
-        work_item_type_to_icon = await get_icons(session, ORG_NAME, PROJECT_NAME)
-        work_items = await get_items(session, ORG_NAME, PROJECT_NAME, query_id)
-
-        parent_child_groups = group_items(work_items)
-        parent_work_items = await fetch_parent_items(
-            session, org_name_escaped, project_name_escaped, parent_child_groups.keys()
+        work_item_type_to_icon, work_items = await fetch_initial_data(session, query_id)
+        parent_work_items = await fetch_and_process_work_items(
+            session, org_name_escaped, project_name_escaped, work_items
         )
-        add_other_parent(parent_work_items)
 
         config = ProcessConfig(
             session, file_md, summarize_items, work_item_type_to_icon
@@ -338,6 +336,33 @@ async def write_notes(
         await finalise_notes(
             output_html, summary_notes, file_md, file_html, [section_header]
         )
+
+
+def setup_environment():
+    """Setup environment variables and headers."""
+    org_name_escaped = quote(ORG_NAME)
+    project_name_escaped = quote(PROJECT_NAME)
+    devops_headers = {"Authorization": f"Basic {encode_pat()}"}
+    return org_name_escaped, project_name_escaped, devops_headers
+
+
+async def fetch_initial_data(session, query_id):
+    """Fetch initial data such as work item icons and work items."""
+    work_item_type_to_icon = await get_icons(session, ORG_NAME, PROJECT_NAME)
+    work_items = await get_items(session, ORG_NAME, PROJECT_NAME, query_id)
+    return work_item_type_to_icon, work_items
+
+
+async def fetch_and_process_work_items(
+    session, org_name_escaped, project_name_escaped, work_items
+):
+    """Fetch and process parent work items and group them."""
+    parent_child_groups = group_items(work_items)
+    parent_work_items = await fetch_parent_items(
+        session, org_name_escaped, project_name_escaped, parent_child_groups.keys()
+    )
+    add_other_parent(parent_work_items)
+    return parent_work_items
 
 
 if __name__ == "__main__":
