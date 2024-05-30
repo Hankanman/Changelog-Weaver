@@ -26,12 +26,12 @@ from modules.config import (
 )
 from modules.enums import WorkItemField, APIEndpoint
 from modules.utils import (
-    setupLogs,
-    cleanString,
-    getWorkItemIcons,
-    getWorkItems,
-    updateItemGroup,
-    finaliseNotes,
+    setup_logs,
+    clean_string,
+    get_icons,
+    get_items,
+    update_group,
+    finalise_notes,
 )
 
 
@@ -52,8 +52,28 @@ class ProcessConfig:
         self.summarize_items = summarize_items
         self.work_item_type_to_icon = work_item_type_to_icon
 
+    def get_summary_flag(self):
+        """Returns the summarize_items flag."""
+        return self.summarize_items
 
-def setupFiles():
+    def set_summary_flag(self, summarize_items):
+        """Sets the summarize_items flag."""
+        self.summarize_items = summarize_items
+
+    def add_work_item_type_icon(self, work_item_type, icon_url):
+        """Adds a new work item type to icon mapping."""
+        self.work_item_type_to_icon[work_item_type] = icon_url
+
+    def get_icon_url(self, work_item_type):
+        """Gets the icon URL for a given work item type."""
+        return self.work_item_type_to_icon.get(work_item_type)
+
+    def get_file_md_path(self):
+        """Returns the file path for the markdown file."""
+        return self.file_md
+
+
+def setup_files():
     """Sets up the necessary file paths and initial markdown content."""
     folder_path = Path(".") / OUTPUT_FOLDER
     file_md = (folder_path / f"{SOLUTION_NAME}-v{RELEASE_VERSION}.md").resolve()
@@ -72,12 +92,12 @@ def setupFiles():
     return file_md, file_html
 
 
-def encodePat():
+def encode_pat():
     """Encodes the PAT for authorization."""
     return base64.b64encode(f":{PAT}".encode()).decode()
 
 
-async def fetchParentItems(session, org_name_escaped, project_name_escaped, parent_ids):
+async def fetch_parent_items(session, org_name_escaped, project_name_escaped, parent_ids):
     """Fetches parent work items from Azure DevOps."""
     parent_work_items = {}
     for parent_id in parent_ids:
@@ -92,7 +112,7 @@ async def fetchParentItems(session, org_name_escaped, project_name_escaped, pare
     return parent_work_items
 
 
-def groupItems(work_items):
+def group_items(work_items):
     """Groups work items by their parent."""
     parent_child_groups = defaultdict(list)
     for item in work_items:
@@ -114,7 +134,7 @@ def groupItems(work_items):
     return parent_child_groups
 
 
-def addOtherParent(parent_work_items):
+def add_other_parent(parent_work_items):
     """Adds a placeholder for items with no parent."""
     parent_work_items["0"] = {
         "id": 0,
@@ -133,37 +153,37 @@ def addOtherParent(parent_work_items):
     }
 
 
-async def processItems(config, work_items, parent_work_items):
+async def process_items(config, work_items, parent_work_items):
     """Processes work items and writes them to the markdown file."""
     summary_notes = ""
     for work_item_type in DESIRED_WORK_ITEM_TYPES:
         log.info("Processing %ss", work_item_type)
-        parent_ids_of_type = getParentIdsByType(parent_work_items, work_item_type)
+        parent_ids_of_type = get_parent_ids_by_type(parent_work_items, work_item_type)
 
         for parent_id in parent_ids_of_type:
             parent_work_item = parent_work_items[parent_id]
-            parent_title = cleanString(
+            parent_title = clean_string(
                 parent_work_item["fields"][WorkItemField.TITLE.value]
             )
             log.info("%s | %s | %s", work_item_type, parent_id, parent_title)
 
-            parent_link, parent_icon_url = getParentLinkAndIcon(
+            parent_link, parent_icon_url = get_parent_link_icon(
                 parent_work_item, config.work_item_type_to_icon, work_item_type
             )
-            child_items = getChildItems(work_items, parent_id)
+            child_items = get_child_items(work_items, parent_id)
 
             if not child_items:
                 log.info("No child items found for parent %s", parent_id)
 
             summary_notes += f"- {parent_title}\n"
-            parent_header = generateParentHeader(
+            parent_header = generate_header(
                 parent_id, parent_link, parent_icon_url, parent_title
             )
 
-            grouped_child_items = groupChildItemsByType(child_items)
+            grouped_child_items = group_items_by_type(child_items)
             if grouped_child_items:
-                writeParentHeaderToFile(config.file_md, parent_header)
-                await updateItemGroup(
+                write_header(config.file_md, parent_header)
+                await update_group(
                     summary_notes,
                     grouped_child_items,
                     config.work_item_type_to_icon,
@@ -175,7 +195,7 @@ async def processItems(config, work_items, parent_work_items):
     return summary_notes
 
 
-def getParentIdsByType(parent_work_items, work_item_type):
+def get_parent_ids_by_type(parent_work_items, work_item_type):
     """
     Returns a list of parent work item IDs that match the specified work item type.
 
@@ -193,7 +213,7 @@ def getParentIdsByType(parent_work_items, work_item_type):
     ]
 
 
-def getParentLinkAndIcon(parent_work_item, work_item_type_to_icon, work_item_type):
+def get_parent_link_icon(parent_work_item, work_item_type_to_icon, work_item_type):
     """
     Get the parent link and icon URL for a given work item.
 
@@ -210,7 +230,7 @@ def getParentLinkAndIcon(parent_work_item, work_item_type_to_icon, work_item_typ
     return parent_link, parent_icon_url
 
 
-def getChildItems(work_items, parent_id):
+def get_child_items(work_items, parent_id):
     """
     Returns a list of child work items based on the given parent ID.
 
@@ -228,7 +248,7 @@ def getChildItems(work_items, parent_id):
     ]
 
 
-def generateParentHeader(parent_id, parent_link, parent_icon_url, parent_title):
+def generate_header(parent_id, parent_link, parent_icon_url, parent_title):
     """
     Generate a parent header for a given parent ID, link, icon URL, and title.
 
@@ -249,7 +269,7 @@ def generateParentHeader(parent_id, parent_link, parent_icon_url, parent_title):
     )
 
 
-def groupChildItemsByType(child_items):
+def group_items_by_type(child_items):
     """
     Groups child items by their work item type.
 
@@ -267,7 +287,7 @@ def groupChildItemsByType(child_items):
     return grouped_child_items
 
 
-def writeParentHeaderToFile(file_md, parent_header):
+def write_header(file_md, parent_header):
     """
     Appends the parent header to the specified Markdown file.
 
@@ -282,7 +302,7 @@ def writeParentHeaderToFile(file_md, parent_header):
         file_output.write(parent_header)
 
 
-async def writeReleaseNotes(
+async def write_notes(
     query_id: str, section_header: str, summarize_items: bool, output_html: bool
 ):
     """
@@ -296,32 +316,32 @@ async def writeReleaseNotes(
     """
     org_name_escaped = quote(ORG_NAME)
     project_name_escaped = quote(PROJECT_NAME)
-    devops_headers = {"Authorization": f"Basic {encodePat()}"}
+    devops_headers = {"Authorization": f"Basic {encode_pat()}"}
 
-    file_md, file_html = setupFiles()
+    file_md, file_html = setup_files()
 
     async with aiohttp.ClientSession(headers=devops_headers) as session:
-        work_item_type_to_icon = await getWorkItemIcons(session, ORG_NAME, PROJECT_NAME)
-        work_items = await getWorkItems(session, ORG_NAME, PROJECT_NAME, query_id)
+        work_item_type_to_icon = await get_icons(session, ORG_NAME, PROJECT_NAME)
+        work_items = await get_items(session, ORG_NAME, PROJECT_NAME, query_id)
 
-        parent_child_groups = groupItems(work_items)
-        parent_work_items = await fetchParentItems(
+        parent_child_groups = group_items(work_items)
+        parent_work_items = await fetch_parent_items(
             session, org_name_escaped, project_name_escaped, parent_child_groups.keys()
         )
-        addOtherParent(parent_work_items)
+        add_other_parent(parent_work_items)
 
         config = ProcessConfig(
             session, file_md, summarize_items, work_item_type_to_icon
         )
-        summary_notes = await processItems(config, work_items, parent_work_items)
+        summary_notes = await process_items(config, work_items, parent_work_items)
 
-        await finaliseNotes(
+        await finalise_notes(
             output_html, summary_notes, file_md, file_html, [section_header]
         )
 
 
 if __name__ == "__main__":
-    setupLogs()
+    setup_logs()
     required_env_vars = [
         ORG_NAME,
         PROJECT_NAME,
@@ -349,4 +369,4 @@ if __name__ == "__main__":
             file_content = file.read()
             # Print the content
             print(file_content)
-        asyncio.run(writeReleaseNotes(RELEASE_QUERY, "Resolved Issues", True, True))
+        asyncio.run(write_notes(RELEASE_QUERY, "Resolved Issues", True, True))

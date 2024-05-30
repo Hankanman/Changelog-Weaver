@@ -61,9 +61,9 @@ if (-Not (Test-Path -Path .env)) {
     SOFTWARE_SUMMARY=
     # The types of parental work items to include in the release notes.
     # This will depend on the work item types used in your project.
-    DESIRED_WORK_ITEM_TYPES= Epic,Feature
+    DESIRED_WORK_ITEM_TYPES=Epic,Feature
     # The folder where the release notes will be generated.
-    OUTPUT_FOLDER= releases
+    OUTPUT_FOLDER=Releases
     # The GPT model to use for generating release notes.
     MODEL=gpt-4o
     # The base URL for the GPT API.

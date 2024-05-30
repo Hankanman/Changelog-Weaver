@@ -77,7 +77,7 @@ class Config:
     software_summary: str
 
 
-def setupLogs(level: LogLevel = LogLevel.INFO):
+def setup_logs(level: LogLevel = LogLevel.INFO):
     """
     Sets up logging configuration with the specified logging level.
 
@@ -92,7 +92,7 @@ def setupLogs(level: LogLevel = LogLevel.INFO):
     )
 
 
-def createContents(input_array: List[str]) -> str:
+def create_contents(input_array: List[str]) -> str:
     """
     Converts a list of section headers into a markdown table of contents.
 
@@ -110,7 +110,7 @@ def createContents(input_array: List[str]) -> str:
     return "".join(markdown_links)
 
 
-def cleanString(text: str) -> str:
+def clean_string(text: str) -> str:
     """
     Removes non-alphanumeric characters from a string.
 
@@ -126,7 +126,7 @@ def cleanString(text: str) -> str:
     return re.sub(r"[^a-zA-Z0-9 ]", "", text)
 
 
-def countTokens(text: str) -> int:
+def count_tokens(text: str) -> int:
     """
     Calculates the token count for a given text.
 
@@ -153,7 +153,7 @@ async def summarise(prompt: str):
     """
     model_objects = {model["Name"]: model for model in MODEL_DATA}
     model_object = model_objects.get(MODEL)
-    token_count = countTokens(prompt)
+    token_count = count_tokens(prompt)
     if model_object and token_count > model_object["Tokens"]:
         logging.warning(
             "The prompt contains too many tokens for the selected model %s/%s. Please reduce the size of the prompt.",
@@ -211,7 +211,7 @@ async def summarise(prompt: str):
                     raise e
 
 
-async def getWorkItemIcons(
+async def get_icons(
     session: aiohttp.ClientSession, org_name: str, project_name: str
 ) -> Dict[str, Any]:
     """
@@ -257,7 +257,7 @@ async def getWorkItemIcons(
         return work_item_icon
 
 
-async def getWorkItems(
+async def get_items(
     session: aiohttp.ClientSession, org_name: str, project_name: str, query_id: str
 ) -> List[Dict[str, Any]]:
     """
@@ -289,7 +289,7 @@ async def getWorkItems(
         work_items = []
         for chunk in chunks:
             ids_str = ",".join(chunk)
-            work_items_chunk = await fetchItems(
+            work_items_chunk = await fetch_items(
                 session, org_name, project_name, ids_str
             )
             work_items.extend(work_items_chunk)
@@ -298,7 +298,7 @@ async def getWorkItems(
         return work_items
 
 
-async def fetchItems(session, org_name: str, project_name: str, ids: List[str]):
+async def fetch_items(session, org_name: str, project_name: str, ids: List[str]):
     """
     Fetches work items from the specified organization and project using the provided session.
 
@@ -322,7 +322,7 @@ async def fetchItems(session, org_name: str, project_name: str, ids: List[str]):
         return work_items_response["value"]
 
 
-async def updateItemGroup(
+async def update_group(
     summary_notes_ref: str,
     grouped_work_items: Dict[str, List[Dict[str, Any]]],
     work_item_icon: Dict[str, Any],
@@ -357,11 +357,11 @@ async def updateItemGroup(
         for child_item in items:
             work_item_id = child_item["id"]
             url = child_item["_links"]["html"]["href"]
-            title = cleanString(child_item["fields"][WorkItemField.TITLE.value])
-            repro = cleanString(
+            title = clean_string(child_item["fields"][WorkItemField.TITLE.value])
+            repro = clean_string(
                 child_item["fields"].get(WorkItemField.REPRO_STEPS.value, "")
             )
-            description = cleanString(
+            description = clean_string(
                 child_item["fields"].get(WorkItemField.DESCRIPTION.value, "")
             )
             comments = ""
@@ -375,7 +375,7 @@ async def updateItemGroup(
                         sys.exit(1)
                     comments = " ".join(
                         [
-                            cleanString(comment["text"])
+                            clean_string(comment["text"])
                             for comment in comments_response.get("comments", [])
                         ]
                     )
@@ -393,7 +393,7 @@ async def updateItemGroup(
                 file.write(f"- [#{work_item_id}]({url}) **{title.strip()}**{summary}\n")
 
 
-async def finaliseNotes(
+async def finalise_notes(
     html: bool,
     summary_notes: str,
     file_md: Path,
@@ -423,7 +423,7 @@ async def finaliseNotes(
         file_contents = file.read()
 
     file_contents = file_contents.replace("<NOTESSUMMARY>", final_summary)
-    toc = createContents(section_headers)
+    toc = create_contents(section_headers)
     file_contents = file_contents.replace("<TABLEOFCONTENTS>", toc)
     file_contents = file_contents.replace(" - .", " - Addressed.")
 
