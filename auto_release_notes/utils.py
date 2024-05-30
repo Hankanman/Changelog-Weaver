@@ -8,14 +8,14 @@ from typing import List, Dict, Any
 from dataclasses import dataclass
 import asyncio
 import aiohttp
-from modules.enums import (
+from .enums import (
     WorkItemType,
     LogLevel,
     WorkItemField,
     ResponseStatus,
     APIEndpoint,
 )
-from modules.config import (
+from .config import (
     DEVOPS_BASE_URL,
     MODEL_BASE_URL,
     SUMMARY_PROMPT,
@@ -40,6 +40,7 @@ class GroupUpdateConfig:
         session (aiohttp.ClientSession): The client session for making HTTP requests.
         summarize_items (bool): A flag indicating whether to summarize the items.
     """
+
     summary_notes_ref: str
     grouped_work_items: Dict[str, List[Dict[str, Any]]]
     work_item_icon: Dict[str, Any]

@@ -8,7 +8,7 @@ from urllib.parse import quote
 from collections import defaultdict
 import asyncio
 import aiohttp
-from modules.config import (
+from .config import (
     ORG_NAME,
     PROJECT_NAME,
     SOLUTION_NAME,
@@ -24,8 +24,8 @@ from modules.config import (
     SOFTWARE_SUMMARY,
     DEVOPS_API_VERSION,
 )
-from modules.enums import WorkItemField, APIEndpoint
-from modules.utils import (
+from .enums import WorkItemField, APIEndpoint
+from .utils import (
     setup_logs,
     clean_string,
     get_icons,
@@ -336,6 +336,10 @@ async def write_notes(
         await finalise_notes(
             output_html, summary_notes, file_md, file_html, [section_header]
         )
+        with open(file_md, "r", encoding="utf-8") as file:
+            # Read the content of the file
+            file_content = file.read()
+            return file_content
 
 
 def setup_environment():
@@ -365,7 +369,15 @@ async def fetch_and_process_work_items(
     return parent_work_items
 
 
-if __name__ == "__main__":
+def main():
+    """
+    Entry point of the script.
+
+    This function sets up the logs and checks if all the required environment variables are set.
+    If any required variable is missing, it logs an error message and exits the script.
+    Otherwise, it reads the content of the .env file and prints it.
+    Finally, it runs the `write_notes` function with the specified parameters.
+    """
     setup_logs()
     required_env_vars = [
         ORG_NAME,
@@ -394,4 +406,9 @@ if __name__ == "__main__":
             file_content = file.read()
             # Print the content
             print(file_content)
-        asyncio.run(write_notes(RELEASE_QUERY, "Resolved Issues", True, True))
+        result = asyncio.run(write_notes(RELEASE_QUERY, "Resolved Issues", True, True))
+        return result
+
+
+if __name__ == "__main__":
+    main()

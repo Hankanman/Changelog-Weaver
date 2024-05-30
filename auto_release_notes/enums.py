@@ -1,7 +1,7 @@
 """ This module contains all the enums used in the application. """
 
 from enum import Enum
-from modules.config import DEVOPS_API_VERSION
+from .config import DEVOPS_API_VERSION
 
 
 class WorkItemType(Enum):
