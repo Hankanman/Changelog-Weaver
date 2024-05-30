@@ -12,7 +12,8 @@
 		"esbenp.prettier-vscode",
 		"kevinrose.vsc-python-indent",
 		"ms-python.autopep8",
-		"ms-azure-devops.azure-pipelines"
+		"ms-azure-devops.azure-pipelines",
+		"github.vscode-github-actions"
 	],
 	// List of extensions recommended by VS Code that should not be recommended for users of this workspace.
 	"unwantedRecommendations": [

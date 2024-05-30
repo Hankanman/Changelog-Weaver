@@ -1,10 +1,14 @@
 {
-	"folders": [
-		{
-			"path": "."
-		}
-	],
-	"settings": {
-		"azure-pipelines.customSchemaFile": "https://dev.azure.com/trustmarque-devops/_apis/distributedtask/yamlschema"
-	}
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "azure-pipelines.customSchemaFile": "https://dev.azure.com/trustmarque-devops/_apis/distributedtask/yamlschema",
+    "pylint.args": [
+      "--max-line-length",
+      "200"
+    ]
+  }
 }
