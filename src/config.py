@@ -1,4 +1,5 @@
 """ Configuration module for the application. """
+
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -33,20 +34,24 @@ if not env_path.exists():
 load_dotenv(dotenv_path=env_path)
 
 # Retrieve environment variables
-ORG_NAME = os.getenv("ORG_NAME")
-PROJECT_NAME = os.getenv("PROJECT_NAME")
-SOLUTION_NAME = os.getenv("SOLUTION_NAME")
-RELEASE_VERSION = os.getenv("RELEASE_VERSION")
-RELEASE_QUERY = os.getenv("RELEASE_QUERY")
-PAT = os.getenv("PAT")
-GPT_API_KEY = os.getenv("GPT_API_KEY")
-MODEL = os.getenv("MODEL")
-MODEL_BASE_URL = os.getenv("MODEL_BASE_URL")
-DEVOPS_BASE_URL = os.getenv("DEVOPS_BASE_URL")
-OUTPUT_FOLDER = Path(os.getenv("OUTPUT_FOLDER"))
+ORG_NAME = str(os.getenv("ORG_NAME"))
+PROJECT_NAME = str(os.getenv("PROJECT_NAME"))
+SOLUTION_NAME = str(os.getenv("SOLUTION_NAME"))
+RELEASE_VERSION = str(os.getenv("RELEASE_VERSION"))
+RELEASE_QUERY = str(os.getenv("RELEASE_QUERY"))
+PAT = str(os.getenv("PAT"))
+GPT_API_KEY = str(os.getenv("GPT_API_KEY"))
+MODEL = str(os.getenv("MODEL"))
+MODEL_BASE_URL = str(os.getenv("MODEL_BASE_URL"))
+DEVOPS_BASE_URL = str(os.getenv("DEVOPS_BASE_URL"))
+OUTPUT_FOLDER = Path(str(os.getenv("OUTPUT_FOLDER")))
+if OUTPUT_FOLDER is None:
+    OUTPUT_FOLDER = Path("Releases")
 SOFTWARE_SUMMARY = os.getenv("SOFTWARE_SUMMARY")
-DEVOPS_API_VERSION = os.getenv("DEVOPS_API_VERSION")
-DESIRED_WORK_ITEM_TYPES = os.getenv("DESIRED_WORK_ITEM_TYPES").split(",")
+DEVOPS_API_VERSION = str(os.getenv("DEVOPS_API_VERSION"))
+DESIRED_WORK_ITEM_TYPES = [
+    item.strip() for item in str(os.getenv("DESIRED_WORK_ITEM_TYPES")).split(",")
+]
 if "Other" not in DESIRED_WORK_ITEM_TYPES:
     DESIRED_WORK_ITEM_TYPES.append("Other")
 

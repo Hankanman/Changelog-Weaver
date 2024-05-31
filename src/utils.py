@@ -328,10 +328,7 @@ async def get_items(
         # Fetch work items in batches
         work_items = []
         for chunk in chunks:
-            ids_str = ",".join(chunk)
-            work_items_chunk = await fetch_items(
-                session, org_name, project_name, ids_str
-            )
+            work_items_chunk = await fetch_items(session, org_name, project_name, chunk)
             work_items.extend(work_items_chunk)
 
         print(f"Found {len(work_items)} work items")
@@ -475,7 +472,7 @@ async def finalise_notes(
     with open(file_md, "r", encoding="utf-8") as file:
         file_contents = file.read()
 
-    file_contents = file_contents.replace("<NOTESSUMMARY>", final_summary)
+    file_contents = file_contents.replace("<NOTESSUMMARY>", str(final_summary))
     toc = create_contents(section_headers)
     file_contents = file_contents.replace("<TABLEOFCONTENTS>", toc)
     file_contents = file_contents.replace(" - .", " - Addressed.")
