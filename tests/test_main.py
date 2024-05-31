@@ -1,7 +1,7 @@
 """ Tests for the main function """
 
 import unittest
-from auto_release_notes.main import main
+from aireleasenotes.main import main
 
 
 class TestMainFunction(unittest.TestCase):
