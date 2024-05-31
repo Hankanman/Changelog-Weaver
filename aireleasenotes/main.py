@@ -323,23 +323,33 @@ async def write_notes(
     file_md, file_html = setup_files()
 
     async with aiohttp.ClientSession(headers=devops_headers) as session:
-        work_item_type_to_icon, work_items = await fetch_initial_data(session, query_id)
-        parent_work_items = await fetch_and_process_work_items(
-            session, org_name_escaped, project_name_escaped, work_items
-        )
-
         config = ProcessConfig(
-            session, file_md, summarize_items, work_item_type_to_icon
+            session,
+            file_md,
+            summarize_items,
+            await get_icons(session, ORG_NAME, PROJECT_NAME),
         )
-        summary_notes = await process_items(config, work_items, parent_work_items)
+        parent_work_items = await fetch_parent_items(
+            session,
+            org_name_escaped,
+            project_name_escaped,
+            group_items(
+                await get_items(session, ORG_NAME, PROJECT_NAME, query_id)
+            ).keys(),
+        )
+        add_other_parent(parent_work_items)
+
+        summary_notes = await process_items(
+            config,
+            await get_items(session, ORG_NAME, PROJECT_NAME, query_id),
+            parent_work_items,
+        )
 
         await finalise_notes(
             output_html, summary_notes, file_md, file_html, [section_header]
         )
         with open(file_md, "r", encoding="utf-8") as file:
-            # Read the content of the file
-            file_content = file.read()
-            return file_content
+            return file.read()
 
 
 def setup_environment():
