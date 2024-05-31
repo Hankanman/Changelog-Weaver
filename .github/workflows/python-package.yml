@@ -29,12 +29,12 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install pylint pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Lint with flake8
+    - name: Lint with pylint
       run: |
         # stop the build if there are Python syntax errors or undefined names
-        pylint . --function-naming-style=camelCase --module-naming-style=camelCase --variable-naming-style=snake_case --max-line-length=200
+        pylint aireleasenotes --function-naming-style=camelCase --module-naming-style=camelCase --variable-naming-style=snake_case --max-line-length=200
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        pylint . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        pylint aireleasenotes --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
         pytest
