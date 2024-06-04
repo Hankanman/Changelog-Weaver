@@ -1,6 +1,6 @@
 # Project specific files
 releases/
-
+dummy_file.md
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
