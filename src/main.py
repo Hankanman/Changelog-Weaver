@@ -4,26 +4,11 @@ import base64
 import sys
 import logging as log
 from pathlib import Path
-from urllib.parse import quote
 from collections import defaultdict
+from urllib.parse import quote
 import asyncio
 import aiohttp
-from .config import (
-    ORG_NAME,
-    PROJECT_NAME,
-    SOLUTION_NAME,
-    RELEASE_VERSION,
-    RELEASE_QUERY,
-    PAT,
-    GPT_API_KEY,
-    MODEL,
-    MODEL_BASE_URL,
-    DEVOPS_BASE_URL,
-    DESIRED_WORK_ITEM_TYPES,
-    OUTPUT_FOLDER,
-    SOFTWARE_SUMMARY,
-    DEVOPS_API_VERSION,
-)
+from .config import Config, DevOpsConfig, ModelConfig
 from .enums import WorkItemField, APIEndpoint
 from .utils import (
     setup_logs,
@@ -44,7 +29,7 @@ class ProcessConfig:
         session (str): The session information.
         file_md (str): The file metadata.
         summarize_items (bool): Flag indicating whether to summarize items.
-        work_item_type_to_icon (dict): A dictionary mapping work item types to icons.
+        work_item_type_to_icon (Object): A dictionary mapping work item types to icons.
     """
 
     def __init__(self, session, file_md, summarize_items, work_item_type_to_icon):
@@ -76,14 +61,18 @@ class ProcessConfig:
 
 def setup_files():
     """Sets up the necessary file paths and initial markdown content."""
-    folder_path = Path(".") / OUTPUT_FOLDER
-    file_md = (folder_path / f"{SOLUTION_NAME}-v{RELEASE_VERSION}.md").resolve()
-    file_html = (folder_path / f"{SOLUTION_NAME}-v{RELEASE_VERSION}.html").resolve()
+    folder_path = Path(".") / Config.output_folder
+    file_md = (
+        folder_path / f"{Config.solution_name}-v{Config.release_version}.md"
+    ).resolve()
+    file_html = (
+        folder_path / f"{Config.solution_name}-v{Config.release_version}.html"
+    ).resolve()
     folder_path.mkdir(parents=True, exist_ok=True)
 
     with open(file_md, "w", encoding="utf-8") as md_file:
         md_file.write(
-            f"# Release Notes for {SOLUTION_NAME} version v{RELEASE_VERSION}\n\n"
+            f"# Release Notes for {Config.solution_name} version v{Config.release_version}\n\n"
             f"## Summary\n\n"
             f"<NOTESSUMMARY>\n\n"
             f"## Quick Links\n\n"
@@ -93,29 +82,29 @@ def setup_files():
     return file_md, file_html
 
 
-def encode_pat():
+def encode_pat(pat: str):
     """Encodes the PAT for authorization."""
-    return base64.b64encode(f":{PAT}".encode()).decode()
+    return base64.b64encode(f":{pat}".encode()).decode()
 
 
 async def fetch_parent_items(
     session, org_name_escaped, project_name_escaped, parent_ids
 ):
     """Fetches parent work items from Azure DevOps."""
-    parent_work_items = {}
+    parent_work_items = []
     for parent_id in parent_ids:
-        parent_uri = DEVOPS_BASE_URL + APIEndpoint.WORK_ITEM.value.format(
+        parent_uri = DevOpsConfig.devops_base_url + APIEndpoint.WORK_ITEM.value.format(
             org_name=org_name_escaped,
             project_name=project_name_escaped,
             parent_id=parent_id,
         )
-        if parent_id != "0":
+        if parent_id != 0:
             async with session.get(parent_uri) as parent_response:
-                parent_work_items[parent_id] = await parent_response.json()
+                parent_work_items.append(await parent_response.json())
     return parent_work_items
 
 
-def group_items(work_items):
+def group_items(work_items: list):
     """Groups work items by their parent."""
     parent_child_groups = defaultdict(list)
     for item in work_items:
@@ -128,18 +117,18 @@ def group_items(work_items):
             None,
         )
         if parent_link:
-            parent_id = parent_link["url"].split("/")[-1]
+            parent_id = int(parent_link["url"].split("/")[-1])
             parent_child_groups[parent_id].append(item)
         else:
             log.info("Work item %s has no parent", item["id"])
             item["fields"][WorkItemField.PARENT.value] = 0
-            parent_child_groups["0"].append(item)
+            parent_child_groups[0].append(item)
     return parent_child_groups
 
 
-def add_other_parent(parent_work_items):
+def add_other_parent(parent_work_items: list):
     """Adds a placeholder for items with no parent."""
-    parent_work_items["0"] = {
+    parent_work_items[0] = {
         "id": 0,
         "fields": {
             WorkItemField.TITLE.value: "Other",
@@ -156,10 +145,10 @@ def add_other_parent(parent_work_items):
     }
 
 
-async def process_items(config, work_items, parent_work_items):
+async def process_items(config, work_items: list, parent_work_items: list):
     """Processes work items and writes them to the markdown file."""
     summary_notes = ""
-    for work_item_type in DESIRED_WORK_ITEM_TYPES:
+    for work_item_type in DevOpsConfig.parent_work_item_types:
         log.info("Processing %ss", work_item_type)
         parent_ids_of_type = get_parent_ids_by_type(parent_work_items, work_item_type)
 
@@ -200,60 +189,65 @@ async def process_items(config, work_items, parent_work_items):
     return summary_notes
 
 
-def get_parent_ids_by_type(parent_work_items, work_item_type):
+def get_parent_ids_by_type(parent_work_items: list, work_item_type: str):
     """
-    Returns a list of parent work item IDs that match the specified work item type.
+    Returns a Array of parent work item IDs that match the specified work item type.
 
     Args:
-        parent_work_items (dict): A dictionary containing parent work items, where the keys are the work item IDs and the values are the work item details.
+        parent_work_items (Object): A dictionary containing parent work items, where the keys are the work item IDs and the values are the work item details.
         work_item_type (str): The work item type to filter by.
 
     Returns:
-        list: A list of parent work item IDs that match the specified work item type.
+        Array: A Array of parent work item IDs that match the specified work item type.
     """
     return [
-        pid
-        for pid, item in parent_work_items.items()
+        item["id"]
+        for item in parent_work_items
         if item["fields"]["System.WorkItemType"] == work_item_type
     ]
 
 
-def get_parent_link_icon(parent_work_item, work_item_type_to_icon, work_item_type):
+def get_parent_link_icon(
+    parent_work_item: dict, work_item_type_to_icon, work_item_type: str
+):
     """
     Get the parent link and icon URL for a given work item.
 
     Args:
-        parent_work_item (dict): The parent work item.
-        work_item_type_to_icon (dict): A dictionary mapping work item types to their corresponding icon URLs.
+        parent_work_item (Object): The parent work item.
+        work_item_type_to_icon (Object): A dictionary mapping work item types to their corresponding icon URLs.
         work_item_type (str): The type of the work item.
 
     Returns:
         tuple: A tuple containing the parent link and icon URL.
     """
     parent_link = parent_work_item["_links"]["html"]["href"]
-    parent_icon_url = work_item_type_to_icon.get(work_item_type)["iconUrl"]
+    icon_object = work_item_type_to_icon.get(work_item_type, {})
+    parent_icon_url = icon_object.get("iconUrl", None)
     return parent_link, parent_icon_url
 
 
-def get_child_items(work_items, parent_id):
+def get_child_items(work_items: list, parent_id: int) -> list:
     """
-    Returns a list of child work items based on the given parent ID.
+    Returns a Array of child work items based on the given parent ID.
 
     Parameters:
-    work_items (list): A list of work items.
+    work_items (Array): A Array of work items.
     parent_id (int): The ID of the parent work item.
 
     Returns:
-    list: A list of child work items.
+    Array: A Array of child work items.
     """
     return [
         wi
         for wi in work_items
-        if wi["fields"].get(WorkItemField.PARENT.value) == int(parent_id)
+        if wi["fields"].get(WorkItemField.PARENT.value) == parent_id
     ]
 
 
-def generate_header(parent_id, parent_link, parent_icon_url, parent_title):
+def generate_header(
+    parent_id: int, parent_link: str, parent_icon_url: str, parent_title: str
+):
     """
     Generate a parent header for a given parent ID, link, icon URL, and title.
 
@@ -267,7 +261,7 @@ def generate_header(parent_id, parent_link, parent_icon_url, parent_title):
         str: The generated parent header.
 
     """
-    parent_head_link = f"[#{parent_id}]({parent_link}) " if parent_id != "0" else ""
+    parent_head_link = f"[#{parent_id}]({parent_link}) " if parent_id != 0 else ""
     return (
         f"\n### <img src='{parent_icon_url}' alt='icon' width='20' height='20'> "
         f"{parent_head_link}{parent_title}\n"
@@ -279,7 +273,7 @@ def group_items_by_type(child_items):
     Groups child items by their work item type.
 
     Parameters:
-    - child_items (list): A list of child items.
+    - child_items (list): A Array of child items.
 
     Returns:
     - grouped_child_items (defaultdict): A defaultdict containing the child items grouped by their work item type.
@@ -327,21 +321,26 @@ async def write_notes(
             session,
             file_md,
             summarize_items,
-            await get_icons(session, ORG_NAME, PROJECT_NAME),
+            await get_icons(session, DevOpsConfig.org_name, DevOpsConfig.project_name),
+        )
+        items = group_items(
+            await get_items(
+                session, DevOpsConfig.org_name, DevOpsConfig.project_name, query_id
+            )
         )
         parent_work_items = await fetch_parent_items(
             session,
             org_name_escaped,
             project_name_escaped,
-            group_items(
-                await get_items(session, ORG_NAME, PROJECT_NAME, query_id)
-            ).keys(),
+            items,
         )
         add_other_parent(parent_work_items)
 
         summary_notes = await process_items(
             config,
-            await get_items(session, ORG_NAME, PROJECT_NAME, query_id),
+            await get_items(
+                session, DevOpsConfig.org_name, DevOpsConfig.project_name, query_id
+            ),
             parent_work_items,
         )
 
@@ -354,16 +353,20 @@ async def write_notes(
 
 def setup_environment():
     """Setup environment variables and headers."""
-    org_name_escaped = quote(ORG_NAME)
-    project_name_escaped = quote(PROJECT_NAME)
-    devops_headers = {"Authorization": f"Basic {encode_pat()}"}
+    org_name_escaped = quote(DevOpsConfig.org_name)
+    project_name_escaped = quote(DevOpsConfig.project_name)
+    devops_headers = {"Authorization": f"Basic {encode_pat(DevOpsConfig.pat)}"}
     return org_name_escaped, project_name_escaped, devops_headers
 
 
 async def fetch_initial_data(session, query_id):
     """Fetch initial data such as work item icons and work items."""
-    work_item_type_to_icon = await get_icons(session, ORG_NAME, PROJECT_NAME)
-    work_items = await get_items(session, ORG_NAME, PROJECT_NAME, query_id)
+    work_item_type_to_icon = await get_icons(
+        session, DevOpsConfig.org_name, DevOpsConfig.project_name
+    )
+    work_items = await get_items(
+        session, DevOpsConfig.org_name, DevOpsConfig.project_name, query_id
+    )
     return work_item_type_to_icon, work_items
 
 
@@ -390,20 +393,20 @@ def main():
     """
     setup_logs()
     required_env_vars = [
-        ORG_NAME,
-        PROJECT_NAME,
-        SOLUTION_NAME,
-        RELEASE_VERSION,
-        RELEASE_QUERY,
-        GPT_API_KEY,
-        PAT,
-        MODEL,
-        MODEL_BASE_URL,
-        DEVOPS_BASE_URL,
-        SOFTWARE_SUMMARY,
-        DESIRED_WORK_ITEM_TYPES,
-        OUTPUT_FOLDER,
-        DEVOPS_API_VERSION,
+        Config.solution_name,
+        Config.release_version,
+        Config.software_summary,
+        Config.output_folder,
+        DevOpsConfig.pat,
+        DevOpsConfig.org_name,
+        DevOpsConfig.project_name,
+        DevOpsConfig.devops_api_version,
+        DevOpsConfig.release_query,
+        DevOpsConfig.devops_base_url,
+        DevOpsConfig.parent_work_item_types,
+        ModelConfig.gpt_base_url,
+        ModelConfig.model,
+        ModelConfig.gpt_api_key,
     ]
     if any(not var for var in required_env_vars):
         log.error(
@@ -416,7 +419,9 @@ def main():
             file_content = file.read()
             # Print the content
             print(file_content)
-        result = asyncio.run(write_notes(RELEASE_QUERY, "Resolved Issues", True, True))
+        result = asyncio.run(
+            write_notes(DevOpsConfig.release_query, "Resolved Issues", True, True)
+        )
         return result
 
 

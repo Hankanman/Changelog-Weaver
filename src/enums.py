@@ -1,7 +1,7 @@
 """ This module contains all the enums used in the application. """
 
 from enum import Enum
-from .config import DEVOPS_API_VERSION
+from .config import DevOpsConfig
 
 
 class WorkItemType(Enum):
@@ -9,8 +9,12 @@ class WorkItemType(Enum):
     Represents the type of work item.
     """
 
+    BUG = "Bug"
     EPIC = "Epic"
     FEATURE = "Feature"
+    TASK = "Task"
+    USER_STORY = "User Story"
+    PRODUCT_BACKLOG_ITEM = "Product Backlog Item"
     OTHER = "Other"
 
 
@@ -40,6 +44,20 @@ class WorkItemField(Enum):
     COMMENTS = "System.Comments"
     PARENT = "System.Parent"
     WORK_ITEM_TYPE = "System.WorkItemType"
+    AREA_PATH = "System.AreaPath"
+    TEAM_PROJECT = "System.TeamProject"
+    STATE = "System.State"
+    REASON = "System.Reason"
+    ASSIGNED_TO = "System.AssignedTo"
+    CREATED_DATE = "System.CreatedDate"
+    CREATED_BY = "System.CreatedBy"
+    CHANGED_DATE = "System.ChangedDate"
+    CHANGED_BY = "System.ChangedBy"
+    PRIORITY = "Microsoft.VSTS.Common.Priority"
+    SEVERITY = "Microsoft.VSTS.Common.Severity"
+    VALUE_AREA = "Microsoft.VSTS.Common.ValueArea"
+    ITERATION_PATH = "System.IterationPath"
+    TAGS = "System.Tags"
 
 
 class ResponseStatus(Enum):
@@ -80,18 +98,31 @@ class APIEndpoint(Enum):
 
     WORK_ITEM_TYPES = (
         "/{org_name}/{project_name}/_apis/wit/workitemtypes?api-version="
-        + DEVOPS_API_VERSION
+        + DevOpsConfig.devops_api_version
     )
     WIQL = (
         "/{org_name}/{project_name}/_apis/wit/wiql/{query_id}?api-version="
-        + DEVOPS_API_VERSION
+        + DevOpsConfig.devops_api_version
     )
     WORK_ITEMS = (
         "/{org_name}/{project_name}/_apis/wit/workitems?ids={ids}&$expand=all&api-version="
-        + DEVOPS_API_VERSION
+        + DevOpsConfig.devops_api_version
     )
     WORK_ITEM = (
         "/{org_name}/{project_name}/_apis/wit/workitems/{parent_id}?api-version="
-        + DEVOPS_API_VERSION
+        + DevOpsConfig.devops_api_version
     )
     COMPLETIONS = "/chat/completions"
+
+
+class WorkItemState(Enum):
+    """
+    Enum representing the different states of a work item.
+    """
+
+    NEW = "New"
+    ACTIVE = "Active"
+    APPROVED = "Approved"
+    COMMITTED = "Committed"
+    DONE = "Done"
+    REMOVED = "Removed"
