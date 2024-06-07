@@ -59,24 +59,31 @@ class ProcessConfig:
         return self.file_md
 
 
-def setup_files():
+def setup_files(config):
     """Sets up the necessary file paths and initial markdown content."""
-    folder_path = Path(".") / Config.output_folder
+    folder_path = Path(".") / config.output_folder
     file_md = (
-        folder_path / f"{Config.solution_name}-v{Config.release_version}.md"
+        folder_path / f"{config.solution_name}-v{config.release_version}.md"
     ).resolve()
     file_html = (
-        folder_path / f"{Config.solution_name}-v{Config.release_version}.html"
+        folder_path / f"{config.solution_name}-v{config.release_version}.html"
     ).resolve()
     folder_path.mkdir(parents=True, exist_ok=True)
 
+    print(f"Creating Markdown file at: {file_md}")
+    print(f"Creating HTML file at: {file_html}")
+
     with open(file_md, "w", encoding="utf-8") as md_file:
         md_file.write(
-            f"# Release Notes for {Config.solution_name} version v{Config.release_version}\n\n"
+            f"# Release Notes for {config.solution_name} version v{config.release_version}\n\n"
             f"## Summary\n\n"
             f"<NOTESSUMMARY>\n\n"
             f"## Quick Links\n\n"
             f"<TABLEOFCONTENTS>\n"
+        )
+    with open(file_html, "w", encoding="utf-8") as html_file:
+        html_file.write(
+            f"<!--  Release Notes for {config.solution_name} version v{config.release_version} -->"
         )
 
     return file_md, file_html
@@ -314,7 +321,7 @@ async def write_notes(
         output_html (bool): Flag indicating whether to output the release notes in HTML format.
     """
     org_name_escaped, project_name_escaped, devops_headers = setup_environment()
-    file_md, file_html = setup_files()
+    file_md, file_html = setup_files(Config)
 
     async with aiohttp.ClientSession(headers=devops_headers) as session:
         config = ProcessConfig(

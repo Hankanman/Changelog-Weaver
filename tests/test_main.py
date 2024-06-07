@@ -2,7 +2,8 @@
 
 import re
 import random
-from unittest.mock import AsyncMock, patch, mock_open
+from pathlib import Path
+from unittest.mock import AsyncMock, patch, mock_open, MagicMock
 from datetime import datetime, timedelta
 import pytest
 from src.main import (
@@ -32,6 +33,15 @@ class MockResponse:
         """Returns a list of sample work items."""
         return sample_work_items
 
+@pytest.fixture
+def mock_model_config():
+    """Returns a mock ModelConfig object."""
+    mock_config = MagicMock()
+    mock_config.gpt_api_key = 'mock_api_key'
+    mock_config.gpt_base_url = 'http://example.com'
+    mock_config.model = 'mock_model'
+    mock_config.models = [{'Name': 'mock_model', 'Tokens': 8192}]
+    return mock_config
 
 @pytest.fixture
 def sample_parent_work_items():
@@ -191,6 +201,7 @@ def test_write_header(mock_open_instance):
 
 # pylint: disable=redefined-outer-name
 @pytest.mark.asyncio
+@patch('src.config.ModelConfig', autospec=True)
 async def test_process_items(sample_work_items, sample_parent_work_items):
     """Test process_items function."""
     session = AsyncMock()
@@ -222,8 +233,21 @@ async def test_process_items(sample_work_items, sample_parent_work_items):
     ), f'"{summary_notes}" does not match pattern "{pattern}"'
 
 
-def test_setup_files():
+@patch("src.config.Config")
+def test_setup_files(mock_config):
     """Test setup_files function."""
-    file_md, file_html = setup_files()
+    mock_config.return_value = MagicMock()
+    mock_config.return_value.solution_name = "Your Solution Name"
+    mock_config.return_value.release_version = f"1.0.{datetime.now().strftime("%Y%m%d")}.1"
+    mock_config.return_value.output_folder = Path("Releases")
+    mock_config.return_value.software_summary = "mock_summary"
+
+    file_md, file_html = setup_files(mock_config.return_value)
+
+    print(
+        f"Expected HTML file location: {mock_config.return_value.output_folder / 'mock_solution-v.html'}"
+    )
+    print(f"Actual HTML file location: {file_html}")
+
     assert file_md.exists()
     assert file_html.exists()
