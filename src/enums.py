@@ -1,6 +1,8 @@
 """ This module contains all the enums used in the application. """
 
 from enum import Enum
+from dataclasses import dataclass
+from typing import Dict, Any
 from .config import DevOpsConfig
 
 
@@ -33,7 +35,7 @@ class LogLevel(Enum):
     ERROR = "ERROR"
 
 
-class WorkItemField(Enum):
+class Field(Enum):
     """
     Enum representing the different fields of a work item.
     """
@@ -126,3 +128,39 @@ class WorkItemState(Enum):
     COMMITTED = "Committed"
     DONE = "Done"
     REMOVED = "Removed"
+
+
+@dataclass
+class Icon:
+    """Represents an icon for a work item."""
+
+    url: str
+
+
+@dataclass
+class Link:
+    """Represents a link for a work item."""
+
+    href: str
+
+
+# pylint: disable=invalid-name
+@dataclass
+class Links:
+    """Represents the links for a work item."""
+
+    html: Link
+    workItemIcon: Icon
+    workItemComments: Link
+
+
+@dataclass
+class WorkItem:
+    """Represents a work item."""
+
+    name: str
+    icon: Icon
+    id: int
+    fields: Dict[Field, Any]
+    _links: Links
+    url: str

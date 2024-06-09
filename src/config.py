@@ -3,7 +3,9 @@
 import os
 from pathlib import Path
 from dataclasses import dataclass
+from typing import List, Dict, Any
 from dotenv import load_dotenv
+import aiohttp
 
 # Path to the .env file
 env_path = Path(".") / ".env"
@@ -80,6 +82,20 @@ class DevOpsConfig:
     ]
     if "Other" not in parent_work_item_types:
         parent_work_item_types.append("Other")
+    fields = [
+        "System.Title",
+        "System.Id",
+        "System.State",
+        "System.Tags",
+        "System.Description",
+        "System.Parent",
+        "System.CommentCount",
+        "System.WorkItemType",
+        "Microsoft.VSTS.Common.Priority",
+        "Microsoft.VSTS.TCM.ReproSteps",
+        "Microsoft.VSTS.Common.AcceptanceCriteria",
+        "Microsoft.VSTS.Scheduling.StoryPoints",
+    ]
 
 
 @dataclass
@@ -105,6 +121,28 @@ class ModelConfig:
         {"Name": "gpt-4-32k", "Tokens": 32768},
         {"Name": "gpt-4o", "Tokens": 128000},
     ]
+
+
+@dataclass
+class GroupConfig:
+    """
+    Represents the configuration for updating a group of work items.
+
+    Attributes:
+        summary_notes_ref (str): The reference to the summary notes.
+        grouped_work_items (Object[str, Array[Object[str, Any]]]): A Objectionary containing grouped work items.
+        work_item_icon (Object[str, Any]): A Objectionary containing work item icons.
+        file_md (Path): The path to the markdown file.
+        session (aiohttp.ClientSession): The client session for making HTTP requests.
+        summarize_items (bool): A flag indicating whether to summarize the items.
+    """
+
+    summary_notes_ref: str
+    grouped_work_items: Dict[str, List[Any]]
+    work_item_icon: Dict[str, Any]
+    file_md: Path
+    session: aiohttp.ClientSession
+    summarize_items: bool
 
 
 @dataclass

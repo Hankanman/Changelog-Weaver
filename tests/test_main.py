@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch, mock_open, MagicMock
 from datetime import datetime, timedelta
 import pytest
+from src.config import ModelConfig
 from src.main import (
     get_parent_ids_by_type,
     get_parent_link_icon,
@@ -17,7 +18,7 @@ from src.main import (
     ProcessConfig,
     setup_files,
 )
-from src.enums import WorkItemField, WorkItemType, WorkItemState
+from src.enums import Field, WorkItemType, WorkItemState
 
 
 class MockResponse:
@@ -65,9 +66,9 @@ def sample_parent_work_items():
                 "icon": {"url": "http://example.com/icon.png"},
                 "id": i,
                 "fields": {
-                    WorkItemField.TITLE.value: f"{mock_parent_item_type} {i}",
-                    WorkItemField.WORK_ITEM_TYPE.value: mock_parent_item_type,
-                    WorkItemField.PARENT.value: i,
+                    Field.TITLE.value: f"{mock_parent_item_type} {i}",
+                    Field.WORK_ITEM_TYPE.value: mock_parent_item_type,
+                    Field.PARENT.value: i,
                 },
                 "_links": {
                     "html": {"href": f"http://example.com/{mock_parent_item_type}/{i}"},
@@ -99,29 +100,29 @@ def sample_work_items():
                 "icon": {"url": "http://example.com/icon.png"},
                 "id": i,
                 "fields": {
-                    WorkItemField.TITLE.value: f"{mock_item_type} {i}",
-                    WorkItemField.WORK_ITEM_TYPE.value: mock_item_type,
-                    WorkItemField.PARENT.value: random.choice(
+                    Field.TITLE.value: f"{mock_item_type} {i}",
+                    Field.WORK_ITEM_TYPE.value: mock_item_type,
+                    Field.PARENT.value: random.choice(
                         [None, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
                     ),
-                    WorkItemField.AREA_PATH.value: "Sample Area Path",
-                    WorkItemField.TEAM_PROJECT.value: "Sample Team Project",
-                    WorkItemField.STATE.value: random.choice(list(WorkItemState)).value,
-                    WorkItemField.REASON.value: "Sample Reason",
-                    WorkItemField.ASSIGNED_TO.value: "Sample User",
-                    WorkItemField.CREATED_DATE.value: (
+                    Field.AREA_PATH.value: "Sample Area Path",
+                    Field.TEAM_PROJECT.value: "Sample Team Project",
+                    Field.STATE.value: random.choice(list(WorkItemState)).value,
+                    Field.REASON.value: "Sample Reason",
+                    Field.ASSIGNED_TO.value: "Sample User",
+                    Field.CREATED_DATE.value: (
                         datetime.now() - timedelta(days=random.randint(1, 30))
                     ).isoformat(),
-                    WorkItemField.CREATED_BY.value: "Sample Creator",
-                    WorkItemField.CHANGED_DATE.value: datetime.now().isoformat(),
-                    WorkItemField.CHANGED_BY.value: "Sample Changer",
-                    WorkItemField.PRIORITY.value: random.randint(1, 4),
-                    WorkItemField.SEVERITY.value: random.choice(
+                    Field.CREATED_BY.value: "Sample Creator",
+                    Field.CHANGED_DATE.value: datetime.now().isoformat(),
+                    Field.CHANGED_BY.value: "Sample Changer",
+                    Field.PRIORITY.value: random.randint(1, 4),
+                    Field.SEVERITY.value: random.choice(
                         ["1 - Critical", "2 - High", "3 - Medium", "4 - Low"]
                     ),
-                    WorkItemField.VALUE_AREA.value: "Business",
-                    WorkItemField.ITERATION_PATH.value: "Sample Iteration Path",
-                    WorkItemField.TAGS.value: "Sample Tag",
+                    Field.VALUE_AREA.value: "Business",
+                    Field.ITERATION_PATH.value: "Sample Iteration Path",
+                    Field.TAGS.value: "Sample Tag",
                 },
                 "_links": {
                     "html": {"href": f"http://example.com/{mock_item_type}/{i}"},
@@ -201,13 +202,14 @@ def test_write_header(mock_open_instance):
 
 # pylint: disable=redefined-outer-name
 @pytest.mark.asyncio
-@patch('src.config.ModelConfig', autospec=True)
-async def test_process_items(sample_work_items, sample_parent_work_items):
+async def test_process_items(mock_model_config, sample_work_items, sample_parent_work_items):
     """Test process_items function."""
+    ModelConfig. = MagicMock(return_value=mock_model_config)
     session = AsyncMock()
     file_md = "dummy_file.md"
     summarize_items = True
     work_item_type_to_icon = {"Bug": {"iconUrl": "http://example.com/icon.png"}}
+
 
     config = ProcessConfig(session, file_md, summarize_items, work_item_type_to_icon)
     summary_notes = await process_items(

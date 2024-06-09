@@ -2,64 +2,20 @@
 
 import sys
 import re
-import logging
+import datetime
+import logging as log
+import json
 from pathlib import Path
-from typing import List, Dict, Any
 from dataclasses import dataclass
+from typing import List
 import asyncio
 import aiohttp
 from .enums import (
-    WorkItemType,
     LogLevel,
-    WorkItemField,
     ResponseStatus,
     APIEndpoint,
 )
 from .config import Config, Prompts, DevOpsConfig, ModelConfig
-
-
-@dataclass
-class GroupUpdateConfig:
-    """
-    Represents the configuration for updating a group of work items.
-
-    Attributes:
-        summary_notes_ref (str): The reference to the summary notes.
-        grouped_work_items (Object[str, Array[Object[str, Any]]]): A Objectionary containing grouped work items.
-        work_item_icon (Object[str, Any]): A Objectionary containing work item icons.
-        file_md (Path): The path to the markdown file.
-        session (aiohttp.ClientSession): The client session for making HTTP requests.
-        summarize_items (bool): A flag indicating whether to summarize the items.
-    """
-
-    summary_notes_ref: str
-    grouped_work_items: Dict[str, List[Dict[str, Any]]]
-    work_item_icon: Dict[str, Any]
-    file_md: Path
-    session: aiohttp.ClientSession
-    summarize_items: bool
-
-
-@dataclass
-class WorkItem:
-    """
-    Represents a work item.
-
-    Attributes:
-        id (int): The ID of the work item.
-        url (str): The URL of the work item.
-        title (str): The title of the work item.
-        repro (str): The repro steps of the work item.
-        description (str): The description of the work item.
-        comments (str): The comments on the work item.
-    """
-
-    id: int
-    url: str
-    title: str
-    repro: str
-    description: str
-    comments: str
 
 
 @dataclass
@@ -99,7 +55,7 @@ def setup_logs(level: LogLevel = LogLevel.INFO):
     Returns:
         None
     """
-    logging.basicConfig(
+    log.basicConfig(
         level=level.value, format="%(asctime)s - %(levelname)s - %(message)s"
     )
 
@@ -122,20 +78,39 @@ def create_contents(input_array: List[str]) -> str:
     return "".join(markdown_links)
 
 
-def clean_string(text: str) -> str:
-    """
-    Removes non-alphanumeric characters from a string.
+def format_date(date_str: str) -> str:
+    """Format the modified date string.
 
     Args:
-        text (str): The input string to be cleaneDevOpsConfig.
+        date_str (str): Input date string in the format "%Y-%m-%dT%H:%M:%S.%fZ"
 
     Returns:
-        str: The cleaned string with non-alphanumeric characters removeDevOpsConfig.
+        str: Human-readable date string in the format "%d-%m-%Y %H:%M"
     """
-    text = re.sub(r"<img[^>]+>", "", text)
-    text = re.sub(r"!\[[^\]]*\]\([^\)]+\)", "", text)
-    text = re.sub(r'data:image\/[^;]+;base64,[^\s"]+', "", text)
-    return re.sub(r"[^a-zA-Z0-9 ]", "", text)
+    try:
+        date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S.%fZ")
+        return date_obj.strftime("%d-%m-%Y %H:%M")
+    except ValueError:
+        log.warning("Invalid modified date format: %s", date_str)
+        return date_str
+
+
+def clean_string(s: str) -> str:
+    """Strip a string of HTML tags, URLs, JSON, and user references."""
+    s = re.sub(r"<[^>]*?>", "", s)  # Remove HTML tags
+    s = re.sub(r"http[s]?://\S+", "", s)  # Remove URLs
+    s = re.sub(r"@\w+(\.\w+)?", "", s)  # Remove user references
+
+    try:
+        json.loads(s)
+        s = ""
+    except json.JSONDecodeError:
+        pass
+
+    s = s.strip()
+    s = re.sub(r"&nbsp;", " ", s)
+    s = re.sub(r"\s+", " ", s)
+    return s if len(s) >= 30 else ""
 
 
 def count_tokens(text: str) -> int:
@@ -153,7 +128,7 @@ def count_tokens(text: str) -> int:
     return word_count + char_count
 
 
-async def summarise(prompt: str):
+async def summarise(prompt: str, session: aiohttp.ClientSession) -> str:
     """
     Sends a prompt to GPT and returns the response.
 
@@ -167,12 +142,12 @@ async def summarise(prompt: str):
     model_object = model_objects.get(ModelConfig.model)
     token_count = count_tokens(prompt)
     if model_object and token_count > model_object["Tokens"]:
-        logging.warning(
+        log.warning(
             "The prompt contains too many tokens for the selected model %s/%s. Please reduce the size of the prompt.",
             token_count,
             model_object["Tokens"],
         )
-        return "Prompt too large"
+        return ""
 
     retry_count = 0
     initial_delay = 10
@@ -196,13 +171,13 @@ async def summarise(prompt: str):
                     response.raise_for_status()
                     result = await response.json()
                     if response.status != 200:
-                        logging.error(result["message"])
+                        log.error(result["message"])
                         sys.exit(1)
-                    return result["choices"][0]["message"]["content"]
+                    return str(result["choices"][0]["message"]["content"])
             except aiohttp.ClientResponseError as e:
                 if e.status == ResponseStatus.RATE_LIMIT.value:
                     delay = initial_delay * (2**retry_count)
-                    logging.warning(
+                    log.warning(
                         "AI API Error (Too Many Requests), retrying in %s seconds...",
                         delay,
                     )
@@ -210,229 +185,26 @@ async def summarise(prompt: str):
                     retry_count += 1
                 elif e.status == ResponseStatus.ERROR.value:
                     delay = initial_delay * (2**retry_count)
-                    logging.warning(
+                    log.warning(
                         "AI API Error (Internal Server Error), retrying in %s seconds...",
                         delay,
                     )
                     await asyncio.sleep(delay)
                     retry_count += 1
                 elif e.status == ResponseStatus.NOT_FOUND.value:
-                    logging.error(
+                    log.error(
                         "AI API Key Error, this is usually because you are using a free account rather than a paid one.",
                         exc_info=True,
                     )
-                    sys.exit(1)
+                    return ""
                 else:
-                    logging.error("Request failed", exc_info=True)
-                    raise e
+                    log.error("Request failed", exc_info=True)
+                    return ""
+        log.error("Max retries reached. Request failed.")
+        return ""
 
 
-async def get_icons(
-    session: aiohttp.ClientSession, org_name: str, project_name: str
-) -> Dict[str, Any]:
-    """
-    Fetches work item icons from Azure DevOps.
-
-    Args:
-        session (aiohttp.ClientSession): The aiohttp client session.
-        org_name (str): The name of the organization in Azure DevOps.
-        project_name (str): The name of the project in Azure DevOps.
-
-    Returns:
-        Object[str, Any]: A Objectionary containing the work item icons.
-
-    """
-    uri = DevOpsConfig.devops_base_url + APIEndpoint.WORK_ITEM_TYPES.value.format(
-        org_name=org_name, project_name=project_name
-    )
-    try:
-        async with session.get(uri) as response:
-            response_json = await response.json()
-            if response.status != 200:
-                logging.error(response_json["message"])
-                sys.exit(1)
-            else:
-                logging.info("Fetching work item icons...")
-            icons = [
-                {"name": item["name"], "iconUrl": item["icon"]["url"]}
-                for item in response_json["value"]
-            ]
-            work_item_icon = {}
-            for icon in icons:
-                color_match = re.search(r"color=([a-zA-Z0-9]+)", icon["iconUrl"])
-                color = color_match.group(1) if color_match else None
-                work_item_icon[icon["name"]] = {
-                    "iconUrl": icon["iconUrl"],
-                    "color": color,
-                }
-
-            # Ensure "Other" work item type has a default icon
-            work_item_icon[WorkItemType.OTHER.value] = work_item_icon.get(
-                WorkItemType.OTHER.value,
-                {
-                    "iconUrl": "https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_clipboard_issue?color=577275&v=2",
-                    "color": "577275",
-                },
-            )
-    except aiohttp.ClientError as e:
-        logging.error(e, "Unable to connect to DevOps")
-    return work_item_icon
-
-
-async def get_items(
-    session: aiohttp.ClientSession, org_name: str, project_name: str, query_id: str
-) -> List[Dict[str, Any]]:
-    """
-    Fetches work items from Azure DevOps based on a query.
-
-    Args:
-        session (aiohttp.ClientSession): The aiohttp client session.
-        org_name (str): The name of the organization in Azure DevOps.
-        project_name (str): The name of the project in Azure DevOps.
-        query_id (str): The ID of the query to fetch work items from.
-
-    Returns:
-        List[Dict[str, Any]]: A list of work items fetched from Azure DevOps.
-    """
-    uri = DevOpsConfig.devops_base_url + APIEndpoint.WIQL.value.format(
-        org_name=org_name, project_name=project_name, query_id=query_id
-    )
-    async with session.get(uri) as response:
-        query_response = await response.json()
-        if response.status != 200:
-            logging.error(query_response["message"])
-            sys.exit(1)
-        ids = [int(item["id"]) for item in query_response["workItems"]]
-
-        # Split ids into chunks of 199
-        chunks = [ids[i : i + 199] for i in range(0, len(ids), 199)]
-
-        # Fetch work items in batches
-        work_items = []
-        for chunk in chunks:
-            work_items_chunk = await fetch_items(session, org_name, project_name, chunk)
-            work_items.extend(work_items_chunk)
-
-        print(f"Found {len(work_items)} work items")
-        return work_items
-
-
-async def fetch_items(session, org_name: str, project_name: str, ids: List[int]):
-    """
-    Fetches work items from the specified organization and project using the provided session.
-
-    Args:
-        session (aiohttp.ClientSession): The session to use for making HTTP requests.
-        org_name (str): The name of the organization.
-        project_name (str): The name of the project.
-        ids (Array[str]): The Array of work item IDs to fetch.
-
-    Returns:
-        Array[Object]: A Array of work items retrieved from the API response.
-    """
-    uri = DevOpsConfig.devops_base_url + APIEndpoint.WORK_ITEMS.value.format(
-        org_name=org_name, project_name=project_name, ids=",".join(map(str, ids))
-    )
-    async with session.get(uri) as response:
-        work_items_response = await response.json()
-        if response.status != 200:
-            logging.error(work_items_response["message"])
-            sys.exit(1)
-        return work_items_response["value"]
-
-
-async def update_group(config: GroupUpdateConfig) -> None:
-    """
-    Updates the release notes with details of grouped work items.
-
-    Args:
-        config (GroupUpdateConfig): The configuration object containing necessary parameters.
-
-    Returns:
-        None
-    """
-    for work_item_type, items in config.grouped_work_items.items():
-        logging.info("Writing notes for %ss", work_item_type)
-        icon_object = config.work_item_icon.get(work_item_type, {})
-        group_icon_url = icon_object.get("iconUrl", None)
-        config.summary_notes_ref += f" - {work_item_type}s: \n"
-
-        append_to_file(
-            config.file_md,
-            f"### <img src='{group_icon_url}' alt='icon' width='12' height='12'> {work_item_type}s\n",
-        )
-
-        for child_item in items:
-            await process_child_item(config, child_item)
-
-
-async def process_child_item(
-    config: GroupUpdateConfig, child_item: Dict[str, Any]
-) -> None:
-    """Processes and writes a single child item to the file."""
-    work_item_id = child_item["id"]
-    url = child_item["_links"]["html"]["href"]
-    title = clean_string(child_item["fields"][WorkItemField.TITLE.value])
-    repro = clean_string(child_item["fields"].get(WorkItemField.REPRO_STEPS.value, ""))
-    description = clean_string(
-        child_item["fields"].get(WorkItemField.DESCRIPTION.value, "")
-    )
-    comments = await fetch_comments(config.session, child_item)
-
-    summary = await get_summary(config, title, description, repro, comments)
-    config.summary_notes_ref += f"  - {title} | {summary} \n" if summary else ""
-
-    append_to_file(
-        config.file_md, f"- [#{work_item_id}]({url}) **{title.strip()}**{summary}\n"
-    )
-
-
-async def fetch_comments(
-    session: aiohttp.ClientSession, child_item: Dict[str, Any]
-) -> str:
-    """Fetches comments for a given child item."""
-    comments = ""
-    if "_links" in child_item and "workItemComments" in child_item["_links"]:
-        comment_link = child_item["_links"]["workItemComments"]["href"]
-        async with session.get(comment_link) as comment_response:
-            comments_response = await comment_response.json()
-            if comment_response.status != 200:
-                logging.error(comments_response["message"])
-                sys.exit(1)
-            comments = " ".join(
-                [
-                    clean_string(comment["text"])
-                    for comment in comments_response.get("comments", [])
-                ]
-            )
-    return comments
-
-
-async def get_summary(
-    config: GroupUpdateConfig, title: str, description: str, repro: str, comments: str
-) -> str:
-    """Generates a summary for the given item."""
-    if config.summarize_items:
-        summary = await summarise(
-            f"{Prompts.item}: {title} {description} {repro} {comments}"
-        )
-        return f" - {summary}"
-    return ""
-
-
-def append_to_file(file_path: Path, content: str) -> None:
-    """Appends content to the specified file."""
-    with open(file_path, "a", encoding="utf-8") as file:
-        file.write(content)
-
-
-async def finalise_notes(
-    html: bool,
-    summary_notes: str,
-    file_md: Path,
-    file_html: Path,
-    section_headers: List[str],
-) -> None:
+async def finalise_notes(html: bool, summary_notes: str, file_md: Path) -> None:
     """
     Finalizes the release notes by adding the summary and table of contents.
 
@@ -446,18 +218,20 @@ async def finalise_notes(
     Returns:
         None
     """
-    logging.info("Writing final summary and table of contents...")
+    log.info("Writing final summary and table of contents...")
     final_summary = await summarise(
         f"{Prompts.summary}{Config.software_summary}\n"
         f"The following is a summary of the work items completed in this release:\n"
-        f"{summary_notes}\nYour response should be as concise as possible"
+        f"{summary_notes}\nYour response should be as concise as possible",
+        aiohttp.ClientSession(),
     )
     with open(file_md, "r", encoding="utf-8") as file:
         file_contents = file.read()
 
     file_contents = file_contents.replace("<NOTESSUMMARY>", str(final_summary))
-    toc = create_contents(section_headers)
-    file_contents = file_contents.replace("<TABLEOFCONTENTS>", toc)
+    # TODO: Add table of contents
+    # toc = create_contents(section_headers)
+    # file_contents = file_contents.replace("<TABLEOFCONTENTS>", toc)
     file_contents = file_contents.replace(" - .", " - AddresseDevOpsConfig.")
 
     if html:
@@ -468,6 +242,7 @@ async def finalise_notes(
                 headers={"Content-Type": "application/json"},
             ) as markdown_response:
                 markdown_text = await markdown_response.text()
+                file_html = file_md.with_suffix(".html")
                 with open(file_html, "w", encoding="utf-8") as file:
                     file.write(markdown_text)
 
