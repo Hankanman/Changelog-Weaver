@@ -4,6 +4,80 @@
 
 This script generates release notes for a given release version of a solution in Azure DevOps. It retrieves work items from Azure DevOps, summarizes them using GPT, and outputs the release notes in Markdown and HTML formats.
 
+# Example
+
+Below is an example of the output provided by the generator:
+
+
+# Release Notes for Example Software version v1.0.20240409.1
+
+## Summary
+
+Sadipscing ipsum molestie eum tempor rebum at ullamcorper dolor. Dolor no diam takimata vero praesent aliquyam accumsan eirmod takimata sit stet justo nostrud vulputate dolor ullamcorper. Kasd voluptua iriure at erat invidunt lobortis amet gubergren augue lorem labore diam amet praesent. Consetetur amet labore justo luptatum gubergren kasd. Vulputate ipsum dolor est volutpat sit dolor eros diam molestie sit.
+
+## Quick Links
+
+- [Resolved Issues](#resolved-issues)
+
+
+## Resolved Issues
+
+---
+
+### <img src='https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_trophy?color=773B93&v=2' alt='icon' width='20' height='20'> [#11184](#) Case Management
+
+### <img src='https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_insect?color=CC293D&v=2' alt='icon' width='12' height='12'> Bugs
+
+- [#16935](#) **Flow Generate cases from CSV** - Accusam erat dolor ut aliquyam et invidunt vel amet erat sit tempor et. Facer amet est nam sit zzril est ut magna voluptua. Vero eu eros nisl lorem. Erat nonumy lorem et et sed ut dolore stet no rebum est justo elitr invidunt eirmod. Erat dolore et et amet rebum tempor tempor. Dolor amet velit at ullamcorper tempor consequat dolore rebum minim aliquyam hendrerit et ea et ut rebum.
+- [#16999](#) **Create cases from CSV less cases than expected** - Accusam erat dolor ut aliquyam et invidunt vel amet erat sit tempor et. Facer amet est nam sit zzril est ut magna voluptua. Vero eu eros nisl lorem. Erat nonumy lorem et et sed ut dolore stet no rebum est justo elitr invidunt eirmod. Erat dolore et et amet rebum tempor tempor. Dolor amet velit at ullamcorper tempor consequat dolore rebum minim aliquyam hendrerit et ea et ut rebum.
+
+### <img src='https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_trophy?color=773B93&v=2' alt='icon' width='20' height='20'> [#1117](#) Power BI Report
+
+### <img src='https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_insect?color=CC293D&v=2' alt='icon' width='12' height='12'> Bugs
+
+- [#15111](#) **Statutory cases** - Accusam erat dolor ut aliquyam et invidunt vel amet erat sit tempor et. Facer amet est nam sit zzril est ut magna voluptua. Vero eu eros nisl lorem. Erat nonumy lorem et et sed ut dolore stet no rebum est justo elitr invidunt eirmod. Erat dolore et et amet rebum tempor tempor. Dolor amet velit at ullamcorper tempor consequat dolore rebum minim aliquyam hendrerit et ea et ut rebum.
+- [#16698](#) **PBI count is incorrect** - Accusam erat dolor ut aliquyam et invidunt vel amet erat sit tempor et. Facer amet est nam sit zzril est ut magna voluptua. Vero eu eros nisl lorem. Erat nonumy lorem et et sed ut dolore stet no rebum est justo elitr invidunt eirmod. Erat dolore et et amet rebum tempor tempor. Dolor amet velit at ullamcorper tempor consequat dolore rebum minim aliquyam hendrerit et ea et ut rebum.
+
+### <img src='https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_trophy?color=773B93&v=2' alt='icon' width='20' height='20'> [#11198](#) Scheduling App
+
+### <img src='https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_insect?color=CC293D&v=2' alt='icon' width='12' height='12'> Bugs
+
+- [#16970](#) **Create resource requirements flow failing** - Accusam erat dolor ut aliquyam et invidunt vel amet erat sit tempor et. Facer amet est nam sit zzril est ut magna voluptua. Vero eu eros nisl lorem. Erat nonumy lorem et et sed ut dolore stet no rebum est justo elitr invidunt eirmod. Erat dolore et et amet rebum tempor tempor. Dolor amet velit at ullamcorper tempor consequat dolore rebum minim aliquyam hendrerit et ea et ut rebum.
+- [#16996](#) **Scheduling requirements** - Accusam erat dolor ut aliquyam et invidunt vel amet erat sit tempor et. Facer amet est nam sit zzril est ut magna voluptua. Vero eu eros nisl lorem. Erat nonumy lorem et et sed ut dolore stet no rebum est justo elitr invidunt eirmod. Erat dolore et et amet rebum tempor tempor. Dolor amet velit at ullamcorper tempor consequat dolore rebum minim aliquyam hendrerit et ea et ut rebum.
+
+### <img src='https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_trophy?color=773B93&v=2' alt='icon' width='20' height='20'> [#11190](#) Document Management
+
+### <img src='https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_insect?color=CC293D&v=2' alt='icon' width='12' height='12'> Bugs
+
+- [#16883](#) **Populated docs  incorrect naming convention** - Accusam erat dolor ut aliquyam et invidunt vel amet erat sit tempor et. Facer amet est nam sit zzril est ut magna voluptua. Vero eu eros nisl lorem. Erat nonumy lorem et et sed ut dolore stet no rebum est justo elitr invidunt eirmod. Erat dolore et et amet rebum tempor tempor. Dolor amet velit at ullamcorper tempor consequat dolore rebum minim aliquyam hendrerit et ea et ut rebum.
+- [#16900](#) **Docs flows  not working** - Accusam erat dolor ut aliquyam et invidunt vel amet erat sit tempor et. Facer amet est nam sit zzril est ut magna voluptua. Vero eu eros nisl lorem. Erat nonumy lorem et et sed ut dolore stet no rebum est justo elitr invidunt eirmod. Erat dolore et et amet rebum tempor tempor. Dolor amet velit at ullamcorper tempor consequat dolore rebum minim aliquyam hendrerit et ea et ut rebum.
+- [#16916](#) **Docs Flows  Security warnings on on opening** - Accusam erat dolor ut aliquyam et invidunt vel amet erat sit tempor et. Facer amet est nam sit zzril est ut magna voluptua. Vero eu eros nisl lorem. Erat nonumy lorem et et sed ut dolore stet no rebum est justo elitr invidunt eirmod. Erat dolore et et amet rebum tempor tempor. Dolor amet velit at ullamcorper tempor consequat dolore rebum minim aliquyam hendrerit et ea et ut rebum.
+
+### <img src='https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_trophy?color=773B93&v=2' alt='icon' width='20' height='20'> [#1110](#) Inspection Management
+
+### <img src='https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_insect?color=CC293D&v=2' alt='icon' width='12' height='12'> Bugs
+
+- [#16997](#) **Scheduling pop up box too small** - Accusam erat dolor ut aliquyam et invidunt vel amet erat sit tempor et. Facer amet est nam sit zzril est ut magna voluptua. Vero eu eros nisl lorem. Erat nonumy lorem et et sed ut dolore stet no rebum est justo elitr invidunt eirmod. Erat dolore et et amet rebum tempor tempor. Dolor amet velit at ullamcorper tempor consequat dolore rebum minim aliquyam hendrerit et ea et ut rebum.
+
+### <img src='https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_trophy?color=773B93&v=2' alt='icon' width='20' height='20'> [#846](#) Teams Automation
+
+### <img src='https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_insect?color=CC293D&v=2' alt='icon' width='12' height='12'> Bugs
+
+- [#16924](#) **Task generation pop up window stays** - Accusam erat dolor ut aliquyam et invidunt vel amet erat sit tempor et. Facer amet est nam sit zzril est ut magna voluptua. Vero eu eros nisl lorem. Erat nonumy lorem et et sed ut dolore stet no rebum est justo elitr invidunt eirmod. Erat dolore et et amet rebum tempor tempor. Dolor amet velit at ullamcorper tempor consequat dolore rebum minim aliquyam hendrerit et ea et ut rebum.
+
+### <img src='https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_trophy?color=773B93&v=2' alt='icon' width='20' height='20'> [#11199](#) Programme  Cycle Management
+
+### <img src='https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_insect?color=CC293D&v=2' alt='icon' width='12' height='12'> Bugs
+
+- [#16687](#) **Cannot add Standing Member Management App** - Accusam erat dolor ut aliquyam et invidunt vel amet erat sit tempor et. Facer amet est nam sit zzril est ut magna voluptua. Vero eu eros nisl lorem. Erat nonumy lorem et et sed ut dolore stet no rebum est justo elitr invidunt eirmod. Erat dolore et et amet rebum tempor tempor. Dolor amet velit at ullamcorper tempor consequat dolore rebum minim aliquyam hendrerit et ea et ut rebum.
+- [#16925](#) **Add team member pop up window** - Accusam erat dolor ut aliquyam et invidunt vel amet erat sit tempor et. Facer amet est nam sit zzril est ut magna voluptua. Vero eu eros nisl lorem. Erat nonumy lorem et et sed ut dolore stet no rebum est justo elitr invidunt eirmod. Erat dolore et et amet rebum tempor tempor. Dolor amet velit at ullamcorper tempor consequat dolore rebum minim aliquyam hendrerit et ea et ut rebum.
+
+### <img src='https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_code_review?color=B4009E&v=2' alt='icon' width='20' height='20'> Other Items
+
+### <img src='https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_insect?color=CC293D&v=2' alt='icon' width='12' height='12'> Bugs
+
+- [#17001](#) **Scheduling pop up box Assigned** - Accusam erat dolor ut aliquyam et invidunt vel amet erat sit tempor et. Facer amet est nam sit zzril est ut magna voluptua. Vero eu eros nisl lorem. Erat nonumy lorem et et sed ut dolore stet no rebum est justo elitr invidunt eirmod. Erat dolore et et amet rebum tempor tempor. Dolor amet velit at ullamcorper tempor consequat dolore rebum minim aliquyam hendrerit et ea et ut rebum.
+
 ## Requirements
 
 You will need a PAID Open AI API key to run the script, support for other methods will come in future releases
