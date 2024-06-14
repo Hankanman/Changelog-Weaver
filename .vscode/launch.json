@@ -5,6 +5,27 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "MODULE: Work Items",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.work_items",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "args": ["--output_json", "--output_folder", "${workspaceFolder}/tests"]
+    },
+    {
+      "name": "Python: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Python: Attach",
+      "type": "debugpy",
+      "request": "attach"
+    },
+    {
       "name": "DEBUG | Auto Release Notes",
       "type": "debugpy",
       "request": "launch",

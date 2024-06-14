@@ -1,17 +1,19 @@
 """ Main script to write release notes based on Azure DevOps work items. """
 
+from operator import le
 import sys
 import logging as log
 from pathlib import Path
 from typing import List
 import asyncio
-import aiohttp
 from .config import Config, ModelConfig
-from .utils import (
-    setup_logs,
-    finalise_notes,
+from .utils import setup_logs, finalise_notes
+from .work_items import (
+    Types,
+    WorkItems,
+    WorkItem,
+    WorkItemChildren,
 )
-from .work_items import get_items, WorkItemManager, TypeManager, WorkItem
 
 
 class OutputFile:
@@ -68,34 +70,38 @@ async def process_child_item(item: WorkItem) -> None:
 
 
 async def update_group(
-    work_items,
+    grouped_children: List[WorkItemChildren],
 ) -> None:
     """
     Updates the release notes with details of grouped work items.
 
     Args:
-        config (GroupConfig): The configuration object containing necessary parameters.
+        grouped_children (list of WorkItemChildren): The list of grouped child items.
 
     Returns:
         None
     """
-    for work_item_type, item in work_items:
-        log.info("Writing notes for %ss", work_item_type)
+    for group in grouped_children:
+        log.info("Writing notes for %ss", group.type)
 
         OutputFile.write(
-            f"### <img src='{item.icon}' alt='icon' width='12' height='12'> {item.type}s\n"
+            f"### <img src='{group.icon}' alt='icon' width='12' height='12'> {group.type}s\n"
         )
 
-        for child_item in item.children:
+        for child_item in group.items:
             await process_child_item(child_item)
 
 
-async def process_items(work_items: List[WorkItem]):
+async def process_items(work_items: List[WorkItemChildren]):
     """Processes work items and writes them to the markdown file."""
     summary_notes = ""
     for item in work_items:
 
-        log.info("%s | %s | %s", item.type, item.id, item.title)
+        log.info(
+            "Processing %s %s",
+            len(item.items),
+            f"{item.type}s" if len(item.items) > 1 else item.type,
+        )
 
         summary_notes += f"- {item.title}\n"
         parent_header = generate_header(item)
@@ -135,24 +141,20 @@ async def write_notes(summarize_items: bool, output_html: bool):
     Writes release notes based on the provided parameters.
 
     Args:
-        section_header (str): The header for the release notes section.
         summarize_items (bool): Flag indicating whether to summarize the work items.
         output_html (bool): Flag indicating whether to output the release notes in HTML format.
     """
     file_md = OutputFile.get_instance().file
 
-    async with aiohttp.ClientSession() as session:
-        manager = WorkItemManager()
-        type_manager = TypeManager()
-        ordered_work_items = await get_items(
-            session, manager, type_manager, summarize_items
-        )
+    await Types().initialize()
+    work_items = await WorkItems().initialize()
+    ordered_work_items = work_items.group_by_type(work_items.items)
 
-        summary_notes = await process_items(ordered_work_items)
+    summary_notes = await process_items(ordered_work_items)
 
-        await finalise_notes(output_html, summary_notes, file_md)
-        with open(file_md, "r", encoding="utf-8") as file:
-            return file.read()
+    await finalise_notes(output_html, summary_notes, file_md)
+    with open(file_md, "r", encoding="utf-8") as file:
+        return file.read()
 
 
 def main():

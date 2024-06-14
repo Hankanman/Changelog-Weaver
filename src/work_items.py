@@ -2,161 +2,198 @@
 
 from __future__ import annotations
 
+import os
 import asyncio
 import base64
 import json
 import logging as log
 import re
-from typing import List, Optional, Union
+from typing import List, Optional
 
 import aiohttp
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
-from src.config import DevOpsConfig, Prompts, Config
+from src.config import DevOpsConfig, Prompts
 from src.utils import clean_string, format_date, summarise
 
 
-async def get_items(
-    session: aiohttp.ClientSession,
-    manager: WorkItemManager,
-    type_manager: TypeManager,
-    get_summary: bool = True,
-) -> List[WorkItem]:
-    """Fetch the list of work item IDs and return the ordered work items."""
-    uri = f"{DevOpsConfig.devops_base_url}/{DevOpsConfig.org_name}/{DevOpsConfig.project_name}/_apis/wit/wiql/{DevOpsConfig.release_query}"
-    headers = {
-        "Authorization": f"Basic {base64.b64encode(f':{DevOpsConfig.pat}'.encode()).decode()}"
-    }
-
-    async with session.get(uri, headers=headers, timeout=10) as response:
-        result = await response.json()
-
-    work_item_ids = [item["id"] for item in result["workItems"]]
-
-    tasks = [
-        fetch_item(session, item_id, manager, type_manager, get_summary)
-        for item_id in work_item_ids
-    ]
-    await asyncio.gather(*tasks)
-
-    log.debug("Fetched all WorkItems")
-
-    # Initialize parents for all work items
-    parent_tasks = [
-        item.init_parent(session, manager, type_manager)
-        for item in manager.all_work_items
-    ]
-    await asyncio.gather(*parent_tasks)
-
-    log.debug("Initialized parents for all WorkItems")
-
-    return manager.build_work_item_tree()
-
-
-async def fetch_item(
-    session: aiohttp.ClientSession,
-    item_id: int,
-    manager: WorkItemManager,
-    type_manager: TypeManager,
-    get_summary: bool = True,
-) -> WorkItem:
-    """Fetch a work item by its ID asynchronously."""
-    # Check if the work item is already in the manager
-    existing_item = manager.get_work_item(item_id)
-    if existing_item:
-        return existing_item
-
-    fields = ",".join(DevOpsConfig.fields)
-    uri = f"{DevOpsConfig.devops_base_url}/{DevOpsConfig.org_name}/{DevOpsConfig.project_name}/_apis/wit/workitems/{item_id}?fields={fields}"
-    headers = {
-        "Authorization": f"Basic {base64.b64encode(f':{DevOpsConfig.pat}'.encode()).decode()}"
-    }
-
-    async with session.get(uri, headers=headers, timeout=10) as response:
-        item = await response.json()
-
-    work_item = WorkItem(**item["fields"], id=item["id"], url=item["url"])
-    work_item_type = type_manager.get_type(work_item.workItemType)
-    if work_item_type:
-        work_item.type = work_item_type.name
-        work_item.icon = work_item_type.icon.url
-    if work_item.commentCount != 0:
-        work_item.comments = await fetch_comments(session, item_id)
-
-    manager.add_work_item(work_item)
-
-    await manager.fetch_parents_recursively(session, work_item, type_manager)
-
-    if get_summary:
-        content = (
-            f"ROLE: {Prompts.item} "
-            f"TITLE: {work_item.title} "
-            f"DESCRIPTION: {work_item.description} "
-            f"REPRODUCTION_STEPS: {work_item.reproSteps} "
-            f"COMMENTS: {work_item.comments} "
-            f"ACCEPTANCE_CRITERIA: {work_item.acceptanceCriteria}"
-        )
-        work_item.summary = await summarise(content, session)
-    else:
-        work_item.summary = ""
-
-    return work_item
-
-
-async def fetch_comments(session: aiohttp.ClientSession, item_id: int) -> List[str]:
-    """Fetch comments for a work item asynchronously."""
-    uri = f"{DevOpsConfig.devops_base_url}/{DevOpsConfig.org_name}/{DevOpsConfig.project_name}/_apis/wit/workitems/{item_id}/comments"
-    headers = {
-        "Authorization": f"Basic {base64.b64encode(f':{DevOpsConfig.pat}'.encode()).decode()}"
-    }
-
-    async with session.get(uri, headers=headers, timeout=10) as response:
-        comments_data = await response.json()
-
-    comments = [Comment(**comment) for comment in comments_data.get("comments", [])]
-    comments.sort(key=lambda comment: comment.modifiedDate, reverse=True)
-    return [
-        f"{comment.modifiedDate} | {comment.modifiedBy.displayName} | {comment.text}"
-        for comment in comments
-    ]
-
-
-class WorkItemManager:
+class WorkItems:
     """Manages the list of all work items and related operations."""
 
     def __init__(self):
-        self.all_work_items = []
+        self.items = []
+        self.ordered_items = []
+
+    @classmethod
+    async def initialize(cls):
+        """Create a new instance of WorkItems."""
+        self = WorkItems()
+        item_types = await Types.initialize()
+        async with aiohttp.ClientSession() as session:
+            await self.get_items(session, item_types, True)
+        self.ordered_items = self.group_by_type(self.build_work_item_tree())
+        return self
 
     def add_work_item(self, work_item: WorkItem):
         """Add a work item to the list."""
-        if work_item not in self.all_work_items:
-            self.all_work_items.append(work_item)
+        if work_item not in self.items:
+            self.items.append(work_item)
 
     def get_work_item(self, item_id: int) -> Optional[WorkItem]:
         """Get a work item by its ID."""
-        return next((wi for wi in self.all_work_items if wi.id == item_id), None)
+        return next((wi for wi in self.items if wi.id == item_id), None)
 
-    async def fetch_parents_recursively(
+    async def get_items(
+        self,
+        session: aiohttp.ClientSession,
+        item_types: Types,
+        get_summary: bool = True,
+    ) -> List[WorkItem]:
+        """Fetch the list of work item IDs and return the ordered work items."""
+        uri = f"{DevOpsConfig.devops_base_url}/{DevOpsConfig.org_name}/{DevOpsConfig.project_name}/_apis/wit/wiql/{DevOpsConfig.release_query}"
+        headers = {
+            "Authorization": f"Basic {base64.b64encode(f':{DevOpsConfig.pat}'.encode()).decode()}"
+        }
+
+        async with session.get(uri, headers=headers, timeout=10) as response:
+            result = await response.json()
+
+        work_item_ids = [item["id"] for item in result["workItems"]]
+
+        tasks = [
+            self.fetch_item(session, item_id, item_types, get_summary)
+            for item_id in work_item_ids
+        ]
+        await asyncio.gather(*tasks)
+
+        log.debug("Fetched all WorkItems")
+
+        self.ordered_items = self.build_work_item_tree()
+        self.items.sort(key=lambda item: item.id)
+        return self.items
+
+    async def fetch_item(
+        self,
+        session: aiohttp.ClientSession,
+        item_id: int,
+        item_types: Types,
+        get_summary: bool = True,
+    ) -> WorkItem:
+        """Fetch a work item by its ID asynchronously."""
+        # Check if the work item is already in the work_items
+        existing_item = self.get_work_item(item_id)
+        if existing_item:
+            return existing_item
+
+        fields = ",".join(DevOpsConfig.fields)
+        uri = f"{DevOpsConfig.devops_base_url}/{DevOpsConfig.org_name}/{DevOpsConfig.project_name}/_apis/wit/workitems/{item_id}?fields={fields}"
+        headers = {
+            "Authorization": f"Basic {base64.b64encode(f':{DevOpsConfig.pat}'.encode()).decode()}"
+        }
+
+        async with session.get(uri, headers=headers, timeout=10) as response:
+            item = await response.json()
+
+        work_item = WorkItem(
+            **item["fields"],
+            id=item["id"],
+            state=str(item["fields"]["System.State"]),
+            commentCount=int(item["fields"]["System.CommentCount"]),
+            title=clean_string(item["fields"]["System.Title"]),
+            description=(
+                clean_string(item["fields"]["System.Description"])
+                if item["fields"].get("System.Description")
+                else ""
+            ),
+            reproSteps=(
+                clean_string(item["fields"]["Microsoft.VSTS.TCM.ReproSteps"])
+                if item["fields"].get("Microsoft.VSTS.TCM.ReproSteps")
+                else ""
+            ),
+            acceptanceCriteria=(
+                clean_string(item["fields"]["Microsoft.VSTS.Common.AcceptanceCriteria"])
+                if item["fields"].get("Microsoft.VSTS.Common.AcceptanceCriteria")
+                else ""
+            ),
+            tags=str(item["fields"].get("System.Tags")).split("; ") or [],
+            parent=int(item["fields"].get("System.Parent") or 0),
+            url=re.sub(
+                r"_apis/wit/workitems",
+                "_workitems/edit",
+                item["url"],
+                flags=re.IGNORECASE,
+            ),
+            type=str(item["fields"]["System.WorkItemType"]),
+        )
+        work_item_type = item_types.get_type(work_item.type)
+        if work_item_type:
+            work_item.type = work_item_type.name
+            work_item.icon = work_item_type.icon
+        if work_item.commentCount != 0:
+            work_item.comments = await self.fetch_comments(session, item_id)
+
+        self.add_work_item(work_item)
+
+        await self.get_parent(session, work_item, item_types)
+
+        if get_summary:
+            content = (
+                f"ROLE: {Prompts.item} "
+                f"TITLE: {work_item.title} "
+                f"DESCRIPTION: {work_item.description} "
+                f"REPRODUCTION_STEPS: {work_item.reproSteps} "
+                f"COMMENTS: {work_item.comments} "
+                f"ACCEPTANCE_CRITERIA: {work_item.acceptanceCriteria}"
+            )
+            work_item.summary = await summarise(content, session)
+        else:
+            work_item.summary = ""
+
+        return work_item
+
+    async def fetch_comments(
+        self, session: aiohttp.ClientSession, item_id: int
+    ) -> List[str]:
+        """Fetch comments for a work item asynchronously."""
+        uri = f"{DevOpsConfig.devops_base_url}/{DevOpsConfig.org_name}/{DevOpsConfig.project_name}/_apis/wit/workitems/{item_id}/comments"
+        headers = {
+            "Authorization": f"Basic {base64.b64encode(f':{DevOpsConfig.pat}'.encode()).decode()}"
+        }
+
+        async with session.get(uri, headers=headers, timeout=10) as response:
+            comments_data = await response.json()
+
+        comments = [Comment(**comment) for comment in comments_data.get("comments", [])]
+        comments.sort(key=lambda comment: comment.modifiedDate, reverse=True)
+        return [
+            f"{comment.modifiedDate} | {comment.modifiedBy.displayName} | {comment.text}"
+            for comment in comments
+        ]
+
+    async def get_parent(
         self,
         session: aiohttp.ClientSession,
         item: WorkItem,
-        type_manager: TypeManager,
+        item_types: Types,
+        get_summary: bool = True,
     ):
         """Recursively fetch parent work items and add them to the list asynchronously."""
         parent_id = item.parent
         if parent_id and not self.get_work_item(parent_id):
             try:
-                parent_item = await fetch_item(session, parent_id, self, type_manager)
-                await self.fetch_parents_recursively(session, parent_item, type_manager)
+                parent_item = await self.fetch_item(
+                    session, parent_id, item_types, get_summary
+                )
+                await self.get_parent(session, parent_item, item_types)
             except aiohttp.ClientError as e:
                 log.warning("Failed to fetch parent work item %s: %s", parent_id, e)
 
     def build_work_item_tree(self) -> List[WorkItem]:
         """Build a tree structure of work items."""
-        work_item_map = {item.id: item for item in self.all_work_items}
+        work_item_map = {item.id: item for item in self.items}
         root_items = []
 
-        for item in self.all_work_items:
+        for item in self.items:
             parent_id = item.parent
             if parent_id:
                 parent_item = work_item_map.get(parent_id)
@@ -172,15 +209,58 @@ class WorkItemManager:
                     )
             else:
                 root_items.append(item)
+                print(f"Root item: {item.id}")
 
         return root_items
 
+    def group_by_type(self, items: List[WorkItem]) -> List[WorkItemChildren]:
+        """Group work items by their type while preserving hierarchy."""
+        grouped_items = {}
+        for item in items:
+            if item.type not in grouped_items:
+                grouped_items[item.type] = []
+            grouped_items[item.type].append(item)
 
-class TypeManager:
+        grouped_children_list = [
+            WorkItemChildren(
+                type=key, icon=value[0].icon, items=self._group_children(value)
+            )
+            for key, value in grouped_items.items()
+        ]
+
+        return grouped_children_list
+
+    def _group_children(self, items: List[WorkItem]) -> List[WorkItem]:
+        """Recursively group the children of each work item by their type."""
+        for item in items:
+            if item.children:
+                grouped_children = {}
+                for child in item.children:
+                    if child.type not in grouped_children:
+                        grouped_children[child.type] = []
+                    grouped_children[child.type].append(child)
+
+                item.children_by_type = [
+                    WorkItemChildren(
+                        type=key, icon=value[0].icon, items=self._group_children(value)
+                    )
+                    for key, value in grouped_children.items()
+                ]
+        return items
+
+
+class Types:
     """Manages the list of all work item types."""
 
     def __init__(self):
-        self.types = {}
+        self.all = {}
+
+    @classmethod
+    async def initialize(cls):
+        """Create a new instance of Types."""
+        self = Types()
+        self.all = await self.fetch_types(aiohttp.ClientSession())
+        return self
 
     async def fetch_types(self, session: aiohttp.ClientSession):
         """Fetch work item types asynchronously."""
@@ -192,13 +272,23 @@ class TypeManager:
         async with session.get(uri, headers=headers, timeout=10) as response:
             types_data = await response.json()
 
-        self.types = {
-            type["name"]: WorkItemType(**type) for type in types_data.get("value", [])
+        types = {
+            type["name"]: WorkItemType(
+                name=type["name"],
+                icon=type["icon"]["url"],
+                color=str.format("#{}", type["color"]),
+            )
+            for type in types_data.get("value")
         }
+        return types
 
     def get_type(self, type_name: str) -> Optional[WorkItemType]:
         """Get a work item type by name."""
-        return self.types.get(type_name)
+        return self.all.get(type_name)
+
+    def get_types(self) -> List[WorkItemType]:
+        """Get all work item types."""
+        return list(self.all.values())
 
 
 # pylint: disable=no-self-argument
@@ -220,18 +310,12 @@ class User(BaseModel):
         return v
 
 
-class Icon(BaseModel):
-    """Represents an icon for a work item."""
-
-    id: str
-    url: str
-
-
 class WorkItemType(BaseModel):
     """Represents a work item type."""
 
     name: str
-    icon: Icon
+    icon: str
+    color: str = "#000000"
 
 
 # pylint: disable=invalid-name
@@ -253,131 +337,65 @@ class Comment(BaseModel):
         return clean_string(v)
 
 
+class WorkItemChildren(BaseModel):
+    """Represents a work item's children."""
+
+    type: str
+    icon: str = ""
+    items: List[WorkItem]
+
+
 class WorkItem(BaseModel):
     """Represents a work item."""
 
     id: int
-    workItemType: str = Field(..., alias="System.WorkItemType")
-    state: str = Field(..., alias="System.State")
-    commentCount: int = Field(..., alias="System.CommentCount")
-    title: str = Field(..., alias="System.Title")
-    description: Optional[str] = Field(None, alias="System.Description")
-    reproSteps: Optional[str] = Field(None, alias="Microsoft.VSTS.TCM.ReproSteps")
-    acceptanceCriteria: Optional[str] = Field(
-        None, alias="Microsoft.VSTS.Common.AcceptanceCriteria"
-    )
-    tags: Optional[Union[str, List[str]]] = Field(None, alias="System.Tags")
-    parent: Optional[int] = Field(None, alias="System.Parent")
-    url: str
-    comments: Optional[List[str]] = None
-    type: Optional[str] = None
-    icon: Optional[str] = None
-    parent_work_item: Optional[WorkItem] = None
-    children: Optional[List[WorkItem]] = []
+    state: str
+    commentCount: int = 0
+    title: str
     summary: Optional[str] = None
-
-    async def init_parent(
-        self,
-        session: aiohttp.ClientSession,
-        manager: WorkItemManager,
-        type_manager: TypeManager,
-    ):
-        """Initialize the parent work item."""
-        if self.parent:
-            self.parent_work_item = await fetch_item(
-                session, self.parent, manager, type_manager
-            )
-
-    def parent_child(self, manager: WorkItemManager):
-        """Dump the model to a dictionary, optionally excluding the parent attribute."""
-        data = {
-            "id": self.id,
-            "workItemType": self.workItemType,
-            "title": self.title,
-            "summary": self.summary,
-            "state": self.state,
-            "commentCount": self.commentCount,
-            "description": self.description,
-            "reproSteps": self.reproSteps,
-            "acceptanceCriteria": self.acceptanceCriteria,
-            "tags": self.tags,
-            "parent": self.parent,
-            "url": self.url,
-            "comments": self.comments,
-            "type": self.type,
-            "icon": self.icon,
-            "children": [
-                child.parent_child(manager) for child in (self.children or [])
-            ],
-        }
-        return data
-
-    @model_validator(mode="before")
-    def set_url(cls, values):
-        """Set the edit URL."""
-        url = values.get("url")
-        if url:
-            values["url"] = re.sub(
-                r"_apis/wit/workitems", "_workitems/edit", url, flags=re.IGNORECASE
-            )
-        return values
-
-    @field_validator("tags", mode="before")
-    def split_tags(cls, v):
-        """Split tags into a list if it is a string."""
-        if isinstance(v, str):
-            return v.split("; ")
-        return v
-
-    @field_validator(
-        "title", "description", "reproSteps", "acceptanceCriteria", mode="before"
-    )
-    def clean_fields(cls, v):
-        """Clean the specified field."""
-        if v:
-            return clean_string(v)
-        return v
+    description: str
+    reproSteps: str
+    acceptanceCriteria: str
+    tags: List[str] = []
+    parent: int = 0
+    url: str = ""
+    comments: List[str] = []
+    type: str = ""
+    icon: str = ""
+    children: List[WorkItem] = []
+    children_by_type: List[WorkItemChildren] = []
 
 
 async def main(output_json: bool, output_folder: str):
     """Main function to fetch work items and save them to a file."""
     log.basicConfig(level=log.WARNING)
-    manager = WorkItemManager()
-    type_manager = TypeManager()
-
-    async with aiohttp.ClientSession() as session:
-        await type_manager.fetch_types(session)
-        ordered_work_items = await get_items(session, manager, type_manager, True)
+    types = await Types.initialize()
+    work_items = await WorkItems.initialize()
 
     if output_json:
         # Convert types to JSON
         types_json = json.dumps(
-            [type.model_dump() for type in type_manager.types.values()], indent=4
+            [type.model_dump() for type in types.get_types()], indent=4
         )
 
         # Save types JSON to file
+        os.makedirs(output_folder, exist_ok=True)
+
         with open(f"{output_folder}/types.json", "w", encoding="utf-8") as file:
             file.write(types_json)
 
         # Convert items to JSON
         items_json = json.dumps(
-            [item.parent_child(manager) for item in manager.all_work_items], indent=4
+            [
+                item.model_dump(exclude={"children", "children_by_type"})
+                for item in work_items.items
+            ],
+            indent=4,
         )
 
         # Save items JSON to file
         with open(f"{output_folder}/work_items.json", "w", encoding="utf-8") as file:
             file.write(items_json)
-
-        # Convert ordered items to JSON
-        ordered_items_json = json.dumps(
-            [item.parent_child(manager) for item in ordered_work_items], indent=4
-        )
-
-        # Save ordered JSON to file
-        with open(
-            f"{output_folder}/work_items_ordered.json", "w", encoding="utf-8"
-        ) as ordered_file:
-            ordered_file.write(ordered_items_json)
 
 
 if __name__ == "__main__":
@@ -393,4 +411,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    asyncio.run(main(True, str(Config().output_folder)))
+    asyncio.run(main(args.output_json, args.output_folder))
