@@ -263,7 +263,8 @@ class Types:
     async def initialize(cls):
         """Create a new instance of Types."""
         self = Types()
-        self.all = await self.fetch_types(aiohttp.ClientSession())
+        async with aiohttp.ClientSession() as session:
+            self.all = await self.fetch_types(session)
         return self
 
     async def fetch_types(self, session: aiohttp.ClientSession):
