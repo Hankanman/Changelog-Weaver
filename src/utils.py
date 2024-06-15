@@ -95,22 +95,22 @@ def format_date(date_str: str) -> str:
         return date_str
 
 
-def clean_string(s: str) -> str:
+def clean_string(string: str, min_length: int = 30) -> str:
     """Strip a string of HTML tags, URLs, JSON, and user references."""
-    s = re.sub(r"<[^>]*?>", "", s)  # Remove HTML tags
-    s = re.sub(r"http[s]?://\S+", "", s)  # Remove URLs
-    s = re.sub(r"@\w+(\.\w+)?", "", s)  # Remove user references
+    string = re.sub(r"<[^>]*?>", "", string)  # Remove HTML tags
+    string = re.sub(r"http[s]?://\S+", "", string)  # Remove URLs
+    string = re.sub(r"@\w+(\.\w+)?", "", string)  # Remove user references
 
     try:
-        json.loads(s)
-        s = ""
+        json.loads(string)
+        string = ""
     except json.JSONDecodeError:
         pass
 
-    s = s.strip()
-    s = re.sub(r"&nbsp;", " ", s)
-    s = re.sub(r"\s+", " ", s)
-    return s if len(s) >= 30 else ""
+    string = string.strip()
+    string = re.sub(r"&nbsp;", " ", string)
+    string = re.sub(r"\s+", " ", string)
+    return string if len(string) >= min_length else ""
 
 
 def count_tokens(text: str) -> int:
