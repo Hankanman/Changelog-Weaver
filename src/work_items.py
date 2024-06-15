@@ -25,12 +25,11 @@ class WorkItems:
         self.ordered_items = []
 
     @classmethod
-    async def initialize(cls):
+    async def initialize(cls, session: aiohttp.ClientSession):
         """Create a new instance of WorkItems."""
         self = WorkItems()
-        item_types = await Types.initialize()
-        async with aiohttp.ClientSession() as session:
-            await self.get_items(session, item_types, True)
+        item_types = await Types.initialize(session)
+        await self.get_items(session, item_types, True)
         self.ordered_items = self.group_by_type(self.build_work_item_tree())
         return self
 
@@ -260,11 +259,10 @@ class Types:
         self.all = {}
 
     @classmethod
-    async def initialize(cls):
+    async def initialize(cls, session: aiohttp.ClientSession):
         """Create a new instance of Types."""
         self = Types()
-        async with aiohttp.ClientSession() as session:
-            self.all = await self.fetch_types(session)
+        self.all = await self.fetch_types(session)
         return self
 
     async def fetch_types(self, session: aiohttp.ClientSession):
@@ -376,37 +374,42 @@ class WorkItem(BaseModel):
 async def main(output_json: bool, output_folder: str):
     """Main function to fetch work items and save them to a file."""
     log.basicConfig(level=log.WARNING)
-    types = await Types.initialize()
-    work_items = await WorkItems.initialize()
+    async with aiohttp.ClientSession() as session:
+        types = await Types.initialize(session)
+        work_items = await WorkItems.initialize(session)
 
-    if output_json:
-        # Convert types to JSON
-        types_json = json.dumps(
-            [type.model_dump() for type in types.get_types()], indent=4
-        )
+        if output_json:
+            # Convert types to JSON
+            types_json = json.dumps(
+                [type.model_dump() for type in types.get_types()], indent=4
+            )
 
-        # Save types JSON to file
-        os.makedirs(output_folder, exist_ok=True)
+            # Save types JSON to file
+            os.makedirs(output_folder, exist_ok=True)
 
-        with open(f"{output_folder}/types.json", "w", encoding="utf-8") as file:
-            file.write(types_json)
+            with open(f"{output_folder}/types.json", "w", encoding="utf-8") as file:
+                file.write(types_json)
 
-        # Convert items to JSON
-        items_json = json.dumps(
-            [
-                item.model_dump(exclude={"children", "children_by_type"})
-                for item in work_items.items
-            ],
-            indent=4,
-        )
+            # Convert items to JSON
+            items_json = json.dumps(
+                [
+                    item.model_dump(exclude={"children", "children_by_type"})
+                    for item in work_items.items
+                ],
+                indent=4,
+            )
 
-        # Save items JSON to file
-        with open(f"{output_folder}/work_items.json", "w", encoding="utf-8") as file:
-            file.write(items_json)
+            # Save items JSON to file
+            with open(
+                f"{output_folder}/work_items.json", "w", encoding="utf-8"
+            ) as file:
+                file.write(items_json)
+    return work_items
 
 
 if __name__ == "__main__":
     import argparse
+    import time
 
     parser = argparse.ArgumentParser(
         description="Fetch and process work items from DevOps"
@@ -417,5 +420,12 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-
-    asyncio.run(main(args.output_json, args.output_folder))
+    start_time = time.time()
+    wi = asyncio.run(main(args.output_json, args.output_folder))
+    print(
+        "Retrieved",
+        len(wi.items),
+        "Work Items in",
+        round((time.time() - start_time) * 1000),
+        "milliseconds",
+    )
