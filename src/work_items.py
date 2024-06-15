@@ -67,7 +67,6 @@ class WorkItems:
 
         log.debug("Fetched all WorkItems")
 
-        self.ordered_items = self.build_work_item_tree()
         self.items.sort(key=lambda item: item.id)
         return self.items
 
