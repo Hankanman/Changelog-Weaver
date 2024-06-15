@@ -97,9 +97,15 @@ class WorkItems:
         work_item = WorkItem(
             **item["fields"],
             id=item["id"],
+            type=str(item["fields"]["System.WorkItemType"]),
             state=str(item["fields"]["System.State"]),
             commentCount=int(item["fields"]["System.CommentCount"]),
-            title=clean_string(item["fields"]["System.Title"]),
+            parent=int(item["fields"].get("System.Parent") or 0),
+            title=clean_string(item["fields"]["System.Title"], 3),
+            storyPoints=int(
+                item["fields"].get("Microsoft.VSTS.Scheduling.StoryPoints") or 0
+            ),
+            priority=int(item["fields"].get("Microsoft.VSTS.Common.Priority") or 0),
             description=(
                 clean_string(item["fields"]["System.Description"])
                 if item["fields"].get("System.Description")
@@ -116,14 +122,12 @@ class WorkItems:
                 else ""
             ),
             tags=str(item["fields"].get("System.Tags")).split("; ") or [],
-            parent=int(item["fields"].get("System.Parent") or 0),
             url=re.sub(
                 r"_apis/wit/workitems",
                 "_workitems/edit",
                 item["url"],
                 flags=re.IGNORECASE,
             ),
-            type=str(item["fields"]["System.WorkItemType"]),
         )
         work_item_type = item_types.get_type(work_item.type)
         if work_item_type:
@@ -349,18 +353,20 @@ class WorkItem(BaseModel):
     """Represents a work item."""
 
     id: int
+    type: str = ""
     state: str
     commentCount: int = 0
+    parent: int = 0
     title: str
+    storyPoints: Optional[int] = None
+    priority: Optional[int] = None
     summary: Optional[str] = None
     description: str
     reproSteps: str
     acceptanceCriteria: str
     tags: List[str] = []
-    parent: int = 0
     url: str = ""
     comments: List[str] = []
-    type: str = ""
     icon: str = ""
     children: List[WorkItem] = []
     children_by_type: List[WorkItemChildren] = []
