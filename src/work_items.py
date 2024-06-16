@@ -13,25 +13,19 @@ from typing import List, Optional
 import aiohttp
 from pydantic import BaseModel, Field, field_validator
 
-from src.config import DevOpsConfig, Prompts
-from src.utils import clean_string, format_date, summarise
+from src.config import Config as c
+from src.utils import clean_string, format_date
 
 
 class WorkItems:
     """Manages the list of all work items and related operations."""
 
-    def __init__(self):
+    async def __init__(self, session: aiohttp.ClientSession):
         self.items = []
         self.ordered_items = []
-
-    @classmethod
-    async def initialize(cls, session: aiohttp.ClientSession):
-        """Create a new instance of WorkItems."""
-        self = WorkItems()
         item_types = await Types.initialize(session)
         await self.get_items(session, item_types, True)
         self.ordered_items = self.group_by_type(self.build_work_item_tree())
-        return self
 
     def add_work_item(self, work_item: WorkItem):
         """Add a work item to the list."""
@@ -49,9 +43,9 @@ class WorkItems:
         get_summary: bool = True,
     ) -> List[WorkItem]:
         """Fetch the list of work item IDs and return the ordered work items."""
-        uri = f"{DevOpsConfig.devops_base_url}/{DevOpsConfig.org_name}/{DevOpsConfig.project_name}/_apis/wit/wiql/{DevOpsConfig.release_query}"
+        uri = f"{c.devops.url}/{c.devops.org}/{c.devops.project}/_apis/wit/wiql/{c.devops.query}"
         headers = {
-            "Authorization": f"Basic {base64.b64encode(f':{DevOpsConfig.pat}'.encode()).decode()}"
+            "Authorization": f"Basic {base64.b64encode(f':{c.devops.pat}'.encode()).decode()}"
         }
 
         async with session.get(uri, headers=headers, timeout=10) as response:
@@ -83,10 +77,10 @@ class WorkItems:
         if existing_item:
             return existing_item
 
-        fields = ",".join(DevOpsConfig.fields)
-        uri = f"{DevOpsConfig.devops_base_url}/{DevOpsConfig.org_name}/{DevOpsConfig.project_name}/_apis/wit/workitems/{item_id}?fields={fields}"
+        fields = ",".join(c.devops.fields)
+        uri = f"{c.devops.url}/{c.devops.org}/{c.devops.project}/_apis/wit/workitems/{item_id}?fields={fields}"
         headers = {
-            "Authorization": f"Basic {base64.b64encode(f':{DevOpsConfig.pat}'.encode()).decode()}"
+            "Authorization": f"Basic {base64.b64encode(f':{c.devops.pat}'.encode()).decode()}"
         }
 
         async with session.get(uri, headers=headers, timeout=10) as response:
@@ -140,14 +134,14 @@ class WorkItems:
 
         if get_summary:
             content = (
-                f"ROLE: {Prompts.item} "
+                f"ROLE: {c.prompts.item} "
                 f"TITLE: {work_item.title} "
                 f"DESCRIPTION: {work_item.description} "
                 f"REPRODUCTION_STEPS: {work_item.reproSteps} "
                 f"COMMENTS: {work_item.comments} "
                 f"ACCEPTANCE_CRITERIA: {work_item.acceptanceCriteria}"
             )
-            work_item.summary = await summarise(content, session)
+            work_item.summary = await c.model.summarise(content, session)
         else:
             work_item.summary = ""
 
@@ -157,9 +151,9 @@ class WorkItems:
         self, session: aiohttp.ClientSession, item_id: int
     ) -> List[str]:
         """Fetch comments for a work item asynchronously."""
-        uri = f"{DevOpsConfig.devops_base_url}/{DevOpsConfig.org_name}/{DevOpsConfig.project_name}/_apis/wit/workitems/{item_id}/comments"
+        uri = f"{c.devops.url}/{c.devops.org}/{c.devops.project}/_apis/wit/workitems/{item_id}/comments"
         headers = {
-            "Authorization": f"Basic {base64.b64encode(f':{DevOpsConfig.pat}'.encode()).decode()}"
+            "Authorization": f"Basic {base64.b64encode(f':{c.devops.pat}'.encode()).decode()}"
         }
 
         async with session.get(uri, headers=headers, timeout=10) as response:
@@ -266,9 +260,11 @@ class Types:
 
     async def fetch_types(self, session: aiohttp.ClientSession):
         """Fetch work item types asynchronously."""
-        uri = f"{DevOpsConfig.devops_base_url}/{DevOpsConfig.org_name}/{DevOpsConfig.project_name}/_apis/wit/workitemtypes"
+        uri = (
+            f"{c.devops.url}/{c.devops.org}/{c.devops.project}/_apis/wit/workitemtypes"
+        )
         headers = {
-            "Authorization": f"Basic {base64.b64encode(f':{DevOpsConfig.pat}'.encode()).decode()}"
+            "Authorization": f"Basic {base64.b64encode(f':{c.devops.pat}'.encode()).decode()}"
         }
 
         async with session.get(uri, headers=headers, timeout=10) as response:
@@ -375,7 +371,7 @@ async def main(output_json: bool, output_folder: str):
     log.basicConfig(level=log.WARNING)
     async with aiohttp.ClientSession() as session:
         types = await Types.initialize(session)
-        work_items = await WorkItems.initialize(session)
+        work_items = WorkItems(session)
 
         if output_json:
             # Convert types to JSON
