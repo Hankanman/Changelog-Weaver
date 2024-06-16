@@ -3,7 +3,6 @@
 from enum import Enum
 from dataclasses import dataclass
 from typing import Dict, Any
-from .config import DevOpsConfig
 
 
 class WorkItemType(Enum):
@@ -91,30 +90,6 @@ class OutputFormat(Enum):
     MARKDOWN = "md"
     HTML = "html"
     PDF = "pdf"
-
-
-class APIEndpoint(Enum):
-    """
-    Enum class representing different API endpoints.
-    """
-
-    WORK_ITEM_TYPES = (
-        "/{org_name}/{project_name}/_apis/wit/workitemtypes?api-version="
-        + DevOpsConfig.devops_api_version
-    )
-    WIQL = (
-        "/{org_name}/{project_name}/_apis/wit/wiql/{query_id}?api-version="
-        + DevOpsConfig.devops_api_version
-    )
-    WORK_ITEMS = (
-        "/{org_name}/{project_name}/_apis/wit/workitems?ids={ids}&$expand=all&api-version="
-        + DevOpsConfig.devops_api_version
-    )
-    WORK_ITEM = (
-        "/{org_name}/{project_name}/_apis/wit/workitems/{parent_id}?api-version="
-        + DevOpsConfig.devops_api_version
-    )
-    COMPLETIONS = "/chat/completions"
 
 
 class WorkItemState(Enum):
