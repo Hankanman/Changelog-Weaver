@@ -13,40 +13,38 @@ from typing import List, Optional
 import aiohttp
 from pydantic import BaseModel, Field, field_validator
 
-from src.config import Config as c
+from src.config import Config
 from src.utils import clean_string, format_date
 
 
 class WorkItems:
     """Manages the list of all work items and related operations."""
 
-    async def __init__(self, session: aiohttp.ClientSession):
-        self.items = []
-        self.ordered_items = []
-        item_types = await Types.initialize(session)
-        await self.get_items(session, item_types, True)
-        self.ordered_items = self.group_by_type(self.build_work_item_tree())
+    def __init__(self):
+        self.all = []
+        self.by_type = []
+        self.types = Types()
 
     def add_work_item(self, work_item: WorkItem):
         """Add a work item to the list."""
-        if work_item not in self.items:
-            self.items.append(work_item)
+        if work_item not in self.all:
+            self.all.append(work_item)
 
     def get_work_item(self, item_id: int) -> Optional[WorkItem]:
         """Get a work item by its ID."""
-        return next((wi for wi in self.items if wi.id == item_id), None)
+        return next((wi for wi in self.all if wi.id == item_id), None)
 
     async def get_items(
         self,
+        config: Config,
         session: aiohttp.ClientSession,
-        item_types: Types,
-        get_summary: bool = True,
+        summarise: bool = True,
     ) -> List[WorkItem]:
         """Fetch the list of work item IDs and return the ordered work items."""
-        uri = f"{c.devops.url}/{c.devops.org}/{c.devops.project}/_apis/wit/wiql/{c.devops.query}"
-        headers = {
-            "Authorization": f"Basic {base64.b64encode(f':{c.devops.pat}'.encode()).decode()}"
-        }
+        if self.types.all == {}:
+            item_types = await self.types.get(config, session)
+        uri = f"{config.devops.url}/{config.devops.org}/{config.devops.project}/_apis/wit/wiql/{config.devops.query}"
+        headers = {"Authorization": f"Basic {config.devops.pat}"}
 
         async with session.get(uri, headers=headers, timeout=10) as response:
             result = await response.json()
@@ -54,21 +52,23 @@ class WorkItems:
         work_item_ids = [item["id"] for item in result["workItems"]]
 
         tasks = [
-            self.fetch_item(session, item_id, item_types, get_summary)
+            self.fetch_item(config, item_id, item_types, session, summarise)
             for item_id in work_item_ids
         ]
         await asyncio.gather(*tasks)
 
         log.debug("Fetched all WorkItems")
 
-        self.items.sort(key=lambda item: item.id)
-        return self.items
+        self.all.sort(key=lambda item: item.id)
+        self.by_type = self.group_by_type(self.build_work_item_tree())
+        return self.all
 
     async def fetch_item(
         self,
-        session: aiohttp.ClientSession,
+        config: Config,
         item_id: int,
         item_types: Types,
+        session: aiohttp.ClientSession,
         get_summary: bool = True,
     ) -> WorkItem:
         """Fetch a work item by its ID asynchronously."""
@@ -77,11 +77,9 @@ class WorkItems:
         if existing_item:
             return existing_item
 
-        fields = ",".join(c.devops.fields)
-        uri = f"{c.devops.url}/{c.devops.org}/{c.devops.project}/_apis/wit/workitems/{item_id}?fields={fields}"
-        headers = {
-            "Authorization": f"Basic {base64.b64encode(f':{c.devops.pat}'.encode()).decode()}"
-        }
+        fields = ",".join(config.devops.fields)
+        uri = f"{config.devops.url}/{config.devops.org}/{config.devops.project}/_apis/wit/workitems/{item_id}?fields={fields}"
+        headers = {"Authorization": f"Basic {config.devops.pat}"}
 
         async with session.get(uri, headers=headers, timeout=10) as response:
             item = await response.json()
@@ -126,35 +124,33 @@ class WorkItems:
             work_item.type = work_item_type.name
             work_item.icon = work_item_type.icon
         if work_item.commentCount != 0:
-            work_item.comments = await self.fetch_comments(session, item_id)
+            work_item.comments = await self.fetch_comments(config, item_id, session)
 
         self.add_work_item(work_item)
 
-        await self.get_parent(session, work_item, item_types)
+        await self.get_parent(config, work_item, item_types, session, get_summary)
 
         if get_summary:
             content = (
-                f"ROLE: {c.prompts.item} "
+                f"ROLE: {config.prompts.item} "
                 f"TITLE: {work_item.title} "
                 f"DESCRIPTION: {work_item.description} "
                 f"REPRODUCTION_STEPS: {work_item.reproSteps} "
                 f"COMMENTS: {work_item.comments} "
                 f"ACCEPTANCE_CRITERIA: {work_item.acceptanceCriteria}"
             )
-            work_item.summary = await c.model.summarise(content, session)
+            work_item.summary = await config.model.summarise(content, session)
         else:
             work_item.summary = ""
 
         return work_item
 
     async def fetch_comments(
-        self, session: aiohttp.ClientSession, item_id: int
+        self, config: Config, item_id: int, session: aiohttp.ClientSession
     ) -> List[str]:
         """Fetch comments for a work item asynchronously."""
-        uri = f"{c.devops.url}/{c.devops.org}/{c.devops.project}/_apis/wit/workitems/{item_id}/comments"
-        headers = {
-            "Authorization": f"Basic {base64.b64encode(f':{c.devops.pat}'.encode()).decode()}"
-        }
+        uri = f"{config.devops.url}/{config.devops.org}/{config.devops.project}/_apis/wit/workitems/{item_id}/comments"
+        headers = {"Authorization": f"Basic {config.devops.pat}"}
 
         async with session.get(uri, headers=headers, timeout=10) as response:
             comments_data = await response.json()
@@ -168,9 +164,10 @@ class WorkItems:
 
     async def get_parent(
         self,
-        session: aiohttp.ClientSession,
+        config: Config,
         item: WorkItem,
         item_types: Types,
+        session: aiohttp.ClientSession,
         get_summary: bool = True,
     ):
         """Recursively fetch parent work items and add them to the list asynchronously."""
@@ -178,18 +175,20 @@ class WorkItems:
         if parent_id and not self.get_work_item(parent_id):
             try:
                 parent_item = await self.fetch_item(
-                    session, parent_id, item_types, get_summary
+                    config, parent_id, item_types, session, get_summary
                 )
-                await self.get_parent(session, parent_item, item_types)
+                await self.get_parent(
+                    config, parent_item, item_types, session, get_summary
+                )
             except aiohttp.ClientError as e:
                 log.warning("Failed to fetch parent work item %s: %s", parent_id, e)
 
     def build_work_item_tree(self) -> List[WorkItem]:
         """Build a tree structure of work items."""
-        work_item_map = {item.id: item for item in self.items}
+        work_item_map = {item.id: item for item in self.all}
         root_items = []
 
-        for item in self.items:
+        for item in self.all:
             parent_id = item.parent
             if parent_id:
                 parent_item = work_item_map.get(parent_id)
@@ -251,21 +250,15 @@ class Types:
     def __init__(self):
         self.all = {}
 
-    @classmethod
-    async def initialize(cls, session: aiohttp.ClientSession):
+    async def get(self, config: Config, session: aiohttp.ClientSession):
         """Create a new instance of Types."""
-        self = Types()
-        self.all = await self.fetch_types(session)
+        self.all = await self.fetch_types(config, session)
         return self
 
-    async def fetch_types(self, session: aiohttp.ClientSession):
+    async def fetch_types(self, config: Config, session: aiohttp.ClientSession):
         """Fetch work item types asynchronously."""
-        uri = (
-            f"{c.devops.url}/{c.devops.org}/{c.devops.project}/_apis/wit/workitemtypes"
-        )
-        headers = {
-            "Authorization": f"Basic {base64.b64encode(f':{c.devops.pat}'.encode()).decode()}"
-        }
+        uri = f"{config.devops.url}/{config.devops.org}/{config.devops.project}/_apis/wit/workitemtypes"
+        headers = {"Authorization": f"Basic {config.devops.pat}"}
 
         async with session.get(uri, headers=headers, timeout=10) as response:
             types_data = await response.json()
@@ -369,37 +362,47 @@ class WorkItem(BaseModel):
 async def main(output_json: bool, output_folder: str):
     """Main function to fetch work items and save them to a file."""
     log.basicConfig(level=log.WARNING)
-    async with aiohttp.ClientSession() as session:
-        types = await Types.initialize(session)
-        work_items = WorkItems(session)
+    config = Config()
+    session = config.session
+    wi = WorkItems()
+    await wi.get_items(config, session)
+    items = wi.all
+    types = wi.types
 
-        if output_json:
-            # Convert types to JSON
-            types_json = json.dumps(
-                [type.model_dump() for type in types.get_types()], indent=4
-            )
+    if output_json:
+        # Convert types to JSON
+        types_json = json.dumps(
+            [type.model_dump() for type in types.get_types()], indent=4
+        )
 
-            # Save types JSON to file
-            os.makedirs(output_folder, exist_ok=True)
+        # Save types JSON to file
+        os.makedirs(output_folder, exist_ok=True)
 
-            with open(f"{output_folder}/types.json", "w", encoding="utf-8") as file:
-                file.write(types_json)
+        with open(f"{output_folder}/types.json", "w", encoding="utf-8") as file:
+            file.write(types_json)
 
-            # Convert items to JSON
-            items_json = json.dumps(
-                [
-                    item.model_dump(exclude={"children", "children_by_type"})
-                    for item in work_items.items
-                ],
-                indent=4,
-            )
+        # Convert items to JSON
+        items_json = json.dumps(
+            [
+                item.model_dump(exclude={"children", "children_by_type"})
+                for item in wi.all
+            ],
+            indent=4,
+        )
 
-            # Save items JSON to file
-            with open(
-                f"{output_folder}/work_items.json", "w", encoding="utf-8"
-            ) as file:
-                file.write(items_json)
-    return work_items
+        # Save items JSON to file
+        with open(f"{output_folder}/work_items.json", "w", encoding="utf-8") as file:
+            file.write(items_json)
+
+        ordered_items_json = json.dumps(
+            [item.model_dump() for item in wi.by_type],
+            indent=4,
+        )
+        with open(
+            f"{output_folder}/ordered_work_items.json", "w", encoding="utf-8"
+        ) as file:
+            file.write(ordered_items_json)
+    return items
 
 
 if __name__ == "__main__":
@@ -416,10 +419,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     start_time = time.time()
-    wi = asyncio.run(main(args.output_json, args.output_folder))
+    work_items = asyncio.run(main(args.output_json, args.output_folder))
     print(
         "Retrieved",
-        len(wi.items),
+        len(work_items),
         "Work Items in",
         round((time.time() - start_time) * 1000),
         "milliseconds",
