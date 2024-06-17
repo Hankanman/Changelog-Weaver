@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import asyncio
-import base64
 import json
 import logging as log
 import re
@@ -402,6 +401,7 @@ async def main(output_json: bool, output_folder: str):
             f"{output_folder}/ordered_work_items.json", "w", encoding="utf-8"
         ) as file:
             file.write(ordered_items_json)
+    await session.close()
     return items
 
 
