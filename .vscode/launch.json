@@ -14,6 +14,14 @@
       "args": ["--output_json", "--output_folder", "${workspaceFolder}/tests"]
     },
     {
+      "name": "MODULE: Main",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.testing",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
       "name": "Python: Current File",
       "type": "debugpy",
       "request": "launch",
