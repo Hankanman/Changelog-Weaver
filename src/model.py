@@ -6,6 +6,7 @@ from typing import List, Dict, Any
 import re
 import asyncio
 import aiohttp
+from requests import head
 from .enums import ResponseStatus
 
 
@@ -21,25 +22,29 @@ class Model:
         models (List[Dict[str, Any]]): A list of available GPT models.
     """
 
-    def __init__(self, key: str, url: str, model_name: str):
-        self.api_key = key
-        self.url = url
-        self.model_name = model_name
-        self.model = next((m for m in self.models if m["Name"] == self.model_name))
-
     api_key: str
     url: str
     model_name: str
     model: Dict[str, Any]
-    models: List[Dict[str, Any]] = field(
-        default_factory=lambda: [
+    models: List[Dict[str, Any]]
+
+    def __init__(self, key: str, url: str, model_name: str, use_model: bool = True):
+        self.api_key = key
+        self.url = url
+        self.model_name = model_name
+        self.use_model = use_model
+        self.models = [
             {"Name": "gpt-3.5-turbo", "Tokens": 4096},
             {"Name": "gpt-3.5-turbo-16k", "Tokens": 16385},
             {"Name": "gpt-4", "Tokens": 8192},
             {"Name": "gpt-4-32k", "Tokens": 32768},
             {"Name": "gpt-4o", "Tokens": 128000},
         ]
-    )
+        self.model = next((m for m in self.models if m["Name"] == self.model_name))
+        self.headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+        }
 
     async def summarise(self, prompt: str, session: aiohttp.ClientSession) -> str:
         """
@@ -63,57 +68,23 @@ class Model:
         retry_count = 0
         initial_delay = 10
         max_retries = 6
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}",
-        }
         payload = {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
         }
+        uri = f"{self.url}/chat/completions"
 
-        async with aiohttp.ClientSession(headers=headers) as session:
-            while retry_count <= max_retries:
-                try:
-                    async with session.post(
-                        f"{self.url}/chat/completions",
-                        json=payload,
-                    ) as response:
-                        response.raise_for_status()
-                        result = await response.json()
-                        if response.status != 200:
-                            log.error(result["message"])
-                        return str(result["choices"][0]["message"]["content"])
-                except aiohttp.ClientResponseError as e:
-                    if e.status == ResponseStatus.RATE_LIMIT.value:
-                        delay = initial_delay * (2**retry_count)
-                        log.warning(
-                            "AI API Error (Too Many Requests), retrying in %s seconds...",
-                            delay,
-                        )
-                        await asyncio.sleep(delay)
-                        retry_count += 1
-                    elif e.status == ResponseStatus.ERROR.value:
-                        delay = initial_delay * (2**retry_count)
-                        log.warning(
-                            "AI API Error (Internal Server Error), retrying in %s seconds...",
-                            delay,
-                        )
-                        await asyncio.sleep(delay)
-                        retry_count += 1
-                    elif e.status == ResponseStatus.NOT_FOUND.value:
-                        log.error(
-                            "AI API Key Error, this is usually because you are using a free account rather than a paid one.",
-                            exc_info=True,
-                        )
-                        return ""
-                    else:
-                        log.error("Request failed", exc_info=True)
-                        return ""
-            log.error("Max retries reached. Request failed.")
-            return ""
+        async with session.get(uri, headers=self.headers, timeout=10) as response:
+            async with session.post(
+                f"{self.url}/chat/completions",
+                json=payload,
+            ) as response:
+                result = await response.json()
+                if response.status != 200:
+                    log.error(result["error"]["message"])
+                return str(result["choices"][0]["message"]["content"])
 
-    async def count_tokens(self, text: str) -> int:
+    def count_tokens(self, text: str) -> int:
         """
         Calculates the token count for a given text.
 
