@@ -1,4 +1,4 @@
-""" Configuration module for the application. """
+""" Config module for DevOps and OpenAI configuration."""
 
 import os
 import base64
@@ -9,7 +9,6 @@ import aiohttp
 from dotenv import load_dotenv
 from .model import Model
 
-# Default values for the .env file
 DEFAULT_ENV = """
 # DevOps and OpenAI Configuration
 ORG_NAME=
@@ -31,7 +30,26 @@ DEVOPS_API_VERSION=6.0
 @dataclass
 class Output:
     """
-    Represents an output file for the release notes.
+    Output class for writing release notes to a file.
+
+    Parameters:
+        folder (str): The folder to store the release notes.
+        name (str): The name of the software.
+        version (str): The version of the software.
+
+    Attributes:
+        md (bool): Whether to output in markdown format.
+        html (bool): Whether to output in HTML format.
+        pdf (bool): Whether to output in PDF format.
+        path (Path): The path to the output file.
+
+    Functions:
+        write: Write content to the output file.
+        read: Read content from the output file.
+        setup: Set up the initial content of the release notes file.
+        set_summary: Set the summary of the release notes.
+        set_toc: Set the table of contents of the release notes.
+        finalize: Finalize the release notes by generating HTML and PDF outputs.
     """
 
     md: bool = True
@@ -49,52 +67,59 @@ class Output:
         except PermissionError as e:
             print(f"Error occurred while initializing Output: {e}")
 
+    def write(self, content: str):
+        """Write content to the output file."""
+        with open(self.path, "a", encoding="utf-8") as file_output:
+            file_output.write(content)
+
+    def read(self) -> str:
+        """Read content from the output file."""
+        with open(self.path, "r", encoding="utf-8") as file:
+            contents = file.read()
+        return contents
+
     def setup(self, name: str, version: str):
-        """Sets up the initial markdown content."""
+        """Set up the initial content of the release notes file."""
         try:
-            with open(self.path, "w", encoding="utf-8") as md_file:
-                md_file.write(
-                    f"# Release Notes for {name} version v{version}\n\n"
-                    f"## Summary\n\n"
-                    f"<NOTESSUMMARY>\n\n"
-                    f"## Quick Links\n\n"
-                    f"<TABLEOFCONTENTS>\n"
-                )
+            self.write(
+                f"# Release Notes for {name} version v{version}\n\n"
+                f"## Summary\n\n"
+                f"<NOTESSUMMARY>\n\n"
+                f"## Quick Links\n\n"
+                f"<TABLEOFCONTENTS>\n"
+            )
         except FileNotFoundError as e:
             print(f"Error occurred while setting up initial content: {e}")
         except PermissionError as e:
             print(f"Error occurred while setting up initial content: {e}")
 
     def set_summary(self, summary: str):
-        """Sets the summary of the release notes."""
+        """Set the summary of the release notes."""
         try:
-            with open(self.path, "r", encoding="utf-8") as md_file:
-                contents = md_file.read()
-            contents = contents.replace("<NOTESSUMMARY>", summary)
-            with open(self.path, "w", encoding="utf-8") as md_file:
-                md_file.write(contents)
+            self.write(self.read().replace("<NOTESSUMMARY>", summary))
         except FileNotFoundError as e:
             print(f"Error occurred while setting summary: {e}")
         except PermissionError as e:
             print(f"Error occurred while setting summary: {e}")
 
     def set_toc(self, toc: str):
-        """Sets the table of contents for the release notes."""
+        """Set the table of contents of the release notes."""
         try:
-            with open(self.path, "r", encoding="utf-8") as md_file:
-                contents = md_file.read()
-            contents = contents.replace("<TABLEOFCONTENTS>", toc)
-            with open(self.path, "w", encoding="utf-8") as md_file:
-                md_file.write(contents)
+            self.write(self.read().replace("<TABLEOFCONTENTS>", toc))
         except FileNotFoundError as e:
             print(f"Error occurred while setting table of contents: {e}")
         except PermissionError as e:
             print(f"Error occurred while setting table of contents: {e}")
 
     async def finalize(self, session: aiohttp.ClientSession):
-        """Finalizes the release notes by adding the summary and table of contents."""
-        with open(self.path, "r", encoding="utf-8") as md_file:
-            contents = md_file.read()
+        """
+        Finalize the release notes by generating HTML and PDF outputs.
+
+        Parameters:
+            session (aiohttp.ClientSession): The aiohttp session object.
+        """
+
+        contents = self.read()
         if self.html:
             try:
                 async with session.post(
@@ -114,26 +139,29 @@ class Output:
 @dataclass
 class DevOps:
     """
-    Configuration class for the DevOps API.
+    DevOps class for Azure DevOps configuration.
+
+    Parameters:
+        url (str): The base URL of the Azure DevOps organization.
+        api_version (str): The API version of the Azure DevOps REST API.
+        org (str): The name of the Azure DevOps organization.
+        project (str): The name of the Azure DevOps project.
+        query (str): The query to retrieve work items from Azure DevOps.
+        pat (str): The personal access token for authenticating with Azure DevOps.
 
     Attributes:
-        devops_base_url (str): The base URL for the DevOps API.
-        devops_api_version (str): The version of the DevOps API.
-        org (str): The organization name.
-        project (str): The project name.
-        pat (str): The personal access token for the DevOps API.
-        query (str): The query for fetching release work items.
+        url (str): The base URL of the Azure DevOps organization.
+        api_version (str): The API version of the Azure DevOps REST API.
+        org (str): The name of the Azure DevOps organization.
+        project (str): The name of the Azure DevOps project.
+        query (str): The query to retrieve work items from Azure DevOps.
+        pat (str): The personal access token for authenticating with Azure DevOps.
+        fields (List[str]): The fields to retrieve from the work items.
     """
 
     # pylint: disable=too-many-arguments
     def __init__(
-        self,
-        url: str,
-        api_version: str,
-        org: str,
-        project: str,
-        query: str,
-        pat: str,
+        self, url: str, api_version: str, org: str, project: str, query: str, pat: str
     ):
         self.url = url
         self.api_version = api_version
@@ -141,9 +169,7 @@ class DevOps:
         self.project = project
         self.query = query
         self.pat = base64.b64encode(f":{pat}".encode()).decode()
-
-    fields: List[str] = field(
-        default_factory=lambda: [
+        self.fields = [
             "System.Title",
             "System.Id",
             "System.State",
@@ -157,16 +183,20 @@ class DevOps:
             "Microsoft.VSTS.Common.AcceptanceCriteria",
             "Microsoft.VSTS.Scheduling.StoryPoints",
         ]
-    )
 
 
 class Prompt:
     """
-    Represents the prompts for the application.
+    Prompt class for generating prompts for the GPT model.
+
+    Parameters:
+        name (str): The name of the software.
+        brief (str): The brief description of the software.
+        release_notes (str): The release notes for the software.
 
     Attributes:
-        summary (str): The prompt for summarizing the work.
-        item (str): The prompt for summarizing a work item.
+        summary (str): The summary prompt.
+        item (str): The work item prompt.
     """
 
     def __init__(self, name: str, brief: str, release_notes: str):
@@ -184,35 +214,37 @@ class Prompt:
 
     @property
     def summary(self):
-        """Returns the summary prompt."""
+        """Get the summary prompt."""
         return self._summary
 
     @summary.setter
     def summary(self, value: str):
-        """Sets the summary prompt."""
         self._summary = value
 
     @property
     def item(self):
-        """Returns the item prompt."""
+        """Get the item prompt."""
         return self._item
 
     @item.setter
     def item(self, value: str):
-        """Sets the item prompt."""
         self._item = value
 
 
 @dataclass
 class Software:
     """
-    Represents the software configuration settings.
+    Software class for software configuration.
 
     Attributes:
-        name (str): The name of the solution.
-        version (str): The version of the release.
-        output_folder (Path): The output folder for the release notes.
-        brief (str): The summary of the software.
+        name (str): The name of the software.
+        version (str): The version of the software.
+        brief (str): The brief description of the software.
+        headers (List[str]): The headers for the software release notes.
+        notes (str): The software release notes.
+
+    Functions:
+        add_header: Add a header to the software release notes.
     """
 
     name: str
@@ -221,32 +253,41 @@ class Software:
     headers: List[str] = field(default_factory=list)
 
     def add_header(self, value: str):
-        """Adds a header to the software."""
+        """
+        Add a header to the software release notes.
+
+        Parameters:
+            value (str): The header to add to the software release notes.
+
+        Returns:
+            List[str]: The updated list of headers for the software release notes.
+        """
         self.headers.append(value)
         return self.headers
 
     @property
     def notes(self):
-        """Returns the notes for the software."""
+        """Get the software release notes."""
         return self.notes
 
     @notes.setter
     def notes(self, value: str):
-        """Sets the notes for the software."""
         self.notes = self.notes + value
+        return self.notes
 
 
 @dataclass
 class Config:
     """
-    Master configuration class for the application.
+    Configuration class for DevOps and OpenAI configuration.
 
     Attributes:
-        software (Software): The software configuration settings.
-        devops (DevOpsConfig): The configuration for the DevOps API.
-        model (ModelConfig): The configuration for the GPT model.
-        prompts (Prompts): The prompts for the application.
-        output (Output): The output file configuration.
+        software (Software): The software configuration.
+        devops (DevOps): The DevOps configuration.
+        model (Model): The GPT model configuration.
+        prompts (Prompt): The prompt configuration.
+        output (Output): The output configuration.
+        session (aiohttp.ClientSession): The aiohttp session object.
     """
 
     software: Software
@@ -254,11 +295,11 @@ class Config:
     model: Model
     prompts: Prompt
     output: Output
+    session: aiohttp.ClientSession
 
     # pylint: disable=too-many-arguments
-    @classmethod
-    def create(
-        cls,
+    def __init__(
+        self,
         env_path: Path = Path(".") / ".env",
         output_folder: str = "Releases",
         software: Optional[Software] = None,
@@ -266,8 +307,7 @@ class Config:
         model: Optional[Model] = None,
         prompts: Optional[Prompt] = None,
         output: Optional[Output] = None,
-    ) -> "Config":
-        """Creates a new configuration object."""
+    ):
         # Check if .env file exists, if not, create it with default values
         if not env_path.exists():
             try:
@@ -285,59 +325,37 @@ class Config:
         if output_folder is None:
             output_folder = str(os.getenv("OUTPUT_FOLDER", "Releases"))
 
-        if software is None:
-            software = Software(
-                name=str(os.getenv("SOLUTION_NAME")),
-                version=str(os.getenv("RELEASE_VERSION")),
-                brief=str(os.getenv("SOFTWARE_SUMMARY")),
-            )
-
-        if devops is None:
-            devops = DevOps(
-                url=str(os.getenv("DEVOPS_BASE_URL")),
-                api_version=str(os.getenv("DEVOPS_API_VERSION")),
-                org=str(os.getenv("ORG_NAME")),
-                project=str(os.getenv("PROJECT_NAME")),
-                pat=str(os.getenv("PAT")),
-                query=str(os.getenv("RELEASE_QUERY")),
-            )
-
-        if model is None:
-            model = Model(
-                key=str(os.getenv("GPT_API_KEY")),
-                url=str(os.getenv("GPT_BASE_URL")),
-                model_name=str(os.getenv("MODEL")),
-            )
-
-        if prompts is None:
-            prompts = Prompt(
-                software.name,
-                software.brief,
-                software.brief,
-            )
-
-        if output is None:
-            output = Output(
-                folder=output_folder,
-                name=software.name,
-                version=software.version,
-            )
-
-        return cls(
-            software=software,
-            devops=devops,
-            model=model,
-            prompts=prompts,
-            output=output,
+        self.software = software or Software(
+            name=str(os.getenv("SOLUTION_NAME")),
+            version=str(os.getenv("RELEASE_VERSION")),
+            brief=str(os.getenv("SOFTWARE_SUMMARY")),
         )
 
-    def write(self, content: str):
-        """Appends content to the Markdown file."""
-        with open(self.output.path, "a", encoding="utf-8") as file_output:
-            file_output.write(content)
+        self.devops = devops or DevOps(
+            url=str(os.getenv("DEVOPS_BASE_URL")),
+            api_version=str(os.getenv("DEVOPS_API_VERSION")),
+            org=str(os.getenv("ORG_NAME")),
+            project=str(os.getenv("PROJECT_NAME")),
+            pat=str(os.getenv("PAT")),
+            query=str(os.getenv("RELEASE_QUERY")),
+        )
 
-    def read(self) -> str:
-        """Reads the contents of a file and returns it as a string."""
-        with open(self.output.path, "r", encoding="utf-8") as file:
-            contents = file.read()
-        return contents
+        self.model = model or Model(
+            key=str(os.getenv("GPT_API_KEY")),
+            url=str(os.getenv("MODEL_BASE_URL")),
+            model_name=str(os.getenv("MODEL")),
+        )
+
+        self.prompts = prompts or Prompt(
+            self.software.name,
+            self.software.brief,
+            self.software.brief,
+        )
+
+        self.output = output or Output(
+            folder=output_folder,
+            name=self.software.name,
+            version=self.software.version,
+        )
+
+        self.session = aiohttp.ClientSession()
