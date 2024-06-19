@@ -259,8 +259,11 @@ class Types:
         uri = f"{config.devops.url}/{config.devops.org}/{config.devops.project}/_apis/wit/workitemtypes"
         headers = {"Authorization": f"Basic {config.devops.pat}"}
 
-        async with session.get(uri, headers=headers, timeout=10) as response:
-            types_data = await response.json()
+        try:
+            async with session.get(uri, headers=headers, timeout=10) as response:
+                types_data = await response.json()
+        except Exception as e:
+            log.error("Connection Error: %s", str(e))
 
         types = {
             type["name"]: WorkItemType(

@@ -60,6 +60,9 @@ class Output:
         try:
             folder_path = Path(".") / folder
             self.path = (folder_path / f"{name}-v{version}.md").resolve()
+            if self.path.exists():
+                self.path.unlink()
+            self.path.touch()
             folder_path.mkdir(parents=True, exist_ok=True)
             self.setup(name, version)
         except FileNotFoundError as e:
@@ -81,12 +84,13 @@ class Output:
     def setup(self, name: str, version: str):
         """Set up the initial content of the release notes file."""
         try:
+
             self.write(
                 f"# Release Notes for {name} version v{version}\n\n"
                 f"## Summary\n\n"
                 f"<NOTESSUMMARY>\n\n"
                 f"## Quick Links\n\n"
-                f"<TABLEOFCONTENTS>\n"
+                f"<TABLEOFCONTENTS>\n\n"
             )
         except FileNotFoundError as e:
             print(f"Error occurred while setting up initial content: {e}")
