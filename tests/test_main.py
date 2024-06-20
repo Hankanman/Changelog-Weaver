@@ -1,255 +1,130 @@
 """ Tests for main.py """
 
-import re
-import random
-from pathlib import Path
-from unittest.mock import AsyncMock, patch, mock_open, MagicMock
-from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
-from src.config import ModelConfig
+import aiohttp
 from src.main import (
-    get_parent_ids_by_type,
-    get_parent_link_icon,
-    get_child_items,
-    generate_header,
-    group_items_by_type,
-    write_header,
-    process_items,
-    ProcessConfig,
-    setup_files,
+    main,
+    iterate_and_print,
+    write_type_header,
+    write_parent_header,
+    write_child_item,
 )
-from src.enums import Field, WorkItemType, WorkItemState
+from src.config import Config
+from src.work_items import WorkItems, WorkItemChildren, WorkItem
 
 
-class MockResponse:
-    """A mock response class for the aiohttp.ClientSession.get method."""
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        pass
-
-    async def json(self):
-        """Returns a list of sample work items."""
-        return sample_work_items
-
-@pytest.fixture
-def mock_model_config():
-    """Returns a mock ModelConfig object."""
-    mock_config = MagicMock()
-    mock_config.gpt_api_key = 'mock_api_key'
-    mock_config.gpt_base_url = 'http://example.com'
-    mock_config.model = 'mock_model'
-    mock_config.models = [{'Name': 'mock_model', 'Tokens': 8192}]
-    return mock_config
-
-@pytest.fixture
-def sample_parent_work_items():
-    """
-    Returns a dictionary of sample parent work items.
-
-    Each work item is represented by a key-value pair, where the key is the work item ID and the value is a dictionary containing the work item fields and links.
-    """
-    # Sample parent work items with work item ID as key and work item fields as value
-    mock_parent_item_types = [
-        WorkItemType.EPIC.value,
-        WorkItemType.FEATURE.value,
-        WorkItemType.OTHER.value,
-    ]
-    mock_parent_work_items = []
-    for i in range(10):
-        mock_parent_item_type = random.choice(mock_parent_item_types)
-        mock_parent_work_items.append(
-            {
-                "name": f"{mock_parent_item_type} {i}",
-                "icon": {"url": "http://example.com/icon.png"},
-                "id": i,
-                "fields": {
-                    Field.TITLE.value: f"{mock_parent_item_type} {i}",
-                    Field.WORK_ITEM_TYPE.value: mock_parent_item_type,
-                    Field.PARENT.value: i,
-                },
-                "_links": {
-                    "html": {"href": f"http://example.com/{mock_parent_item_type}/{i}"},
-                    "workItemIcon": {
-                        "url": "http://example.com/icon.png",
-                    },
-                },
-                "url": f"http://example.com/{i}",
-            }
-        )
-    return mock_parent_work_items
-
-
-@pytest.fixture
-def sample_work_items():
-    """Returns a list of sample work items."""
-    mock_item_types = [
-        WorkItemType.BUG.value,
-        WorkItemType.USER_STORY.value,
-        WorkItemType.TASK.value,
-        WorkItemType.PRODUCT_BACKLOG_ITEM.value,
-    ]
-    mock_work_items = []
-    for i in range(20):
-        mock_item_type = random.choice(mock_item_types)
-        mock_work_items.append(
-            {
-                "name": f"{mock_item_type} {i}",
-                "icon": {"url": "http://example.com/icon.png"},
-                "id": i,
-                "fields": {
-                    Field.TITLE.value: f"{mock_item_type} {i}",
-                    Field.WORK_ITEM_TYPE.value: mock_item_type,
-                    Field.PARENT.value: random.choice(
-                        [None, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-                    ),
-                    Field.AREA_PATH.value: "Sample Area Path",
-                    Field.TEAM_PROJECT.value: "Sample Team Project",
-                    Field.STATE.value: random.choice(list(WorkItemState)).value,
-                    Field.REASON.value: "Sample Reason",
-                    Field.ASSIGNED_TO.value: "Sample User",
-                    Field.CREATED_DATE.value: (
-                        datetime.now() - timedelta(days=random.randint(1, 30))
-                    ).isoformat(),
-                    Field.CREATED_BY.value: "Sample Creator",
-                    Field.CHANGED_DATE.value: datetime.now().isoformat(),
-                    Field.CHANGED_BY.value: "Sample Changer",
-                    Field.PRIORITY.value: random.randint(1, 4),
-                    Field.SEVERITY.value: random.choice(
-                        ["1 - Critical", "2 - High", "3 - Medium", "4 - Low"]
-                    ),
-                    Field.VALUE_AREA.value: "Business",
-                    Field.ITERATION_PATH.value: "Sample Iteration Path",
-                    Field.TAGS.value: "Sample Tag",
-                },
-                "_links": {
-                    "html": {"href": f"http://example.com/{mock_item_type}/{i}"},
-                    "workItemIcon": {"url": "http://example.com/icon.png"},
-                },
-                "url": f"http://example.com/{i}",
-            }
-        )
-
-    return mock_work_items
-
-
-# pylint: disable=redefined-outer-name
-def test_get_parent_ids_by_type(sample_work_items):
-    """Test get_parent_ids_by_type function."""
-    result = get_parent_ids_by_type(sample_work_items, "Feature")
-    assert isinstance(result, list)
-    for item in result:
-        assert (
-            sample_work_items[str(item)]["fields"]["System.WorkItemType"] == "Feature"
-        )
-
-
-# pylint: disable=redefined-outer-name
-def test_get_parent_link_icon(sample_parent_work_items):
-    """Test get_parent_link_icon function."""
-    parent_work_item = sample_parent_work_items[1]
-    work_item_type_to_icon = {"Bug": {"iconUrl": "http://example.com/icon.png"}}
-    parent_link, parent_icon_url = get_parent_link_icon(
-        parent_work_item, work_item_type_to_icon, "Bug"
-    )
-    pattern = rf"http://example\.com/({WorkItemType.EPIC.value}|{WorkItemType.FEATURE.value}|{WorkItemType.OTHER.value})/\d+$"
-    assert re.match(pattern, parent_link)
-    assert parent_icon_url == "http://example.com/icon.png"
-
-
-# pylint: disable=redefined-outer-name
-def test_get_child_items(sample_work_items):
-    """Test get_child_items function."""
-    result = get_child_items(sample_work_items, 1)
-    pattern = rf"(({WorkItemType.BUG.value}|{WorkItemType.USER_STORY.value}|{WorkItemType.TASK.value}|{WorkItemType.PRODUCT_BACKLOG_ITEM.value}) \d+)$"
-    assert len(result) >= 1
-    match = re.fullmatch(pattern, result[0]["fields"]["System.Title"])
-    assert (
-        match is not None
-    ), f'"{result[0]["fields"]["System.Title"]}" does not match pattern "{pattern}"'
-
-
-def test_generate_header():
-    """Test generate_header function."""
-    parent_header = generate_header(
-        1, "http://example.com/1", "http://example.com/icon.png", "Bug 1"
-    )
-    assert "Bug 1" in parent_header
-    assert "http://example.com/icon.png" in parent_header
-
-
-def test_group_items_by_type(sample_work_items):
-    """Test group_items_by_type function."""
-    result = group_items_by_type(sample_work_items)
-    assert "Bug" in result
-    assert len(result["Bug"]) >= 1
-
-
-@patch("builtins.open", new_callable=mock_open)
-def test_write_header(mock_open_instance):
-    """Test write_header function."""
-    write_header("dummy_file.md", "Parent Header")
-
-    # Check if the file was opened with the correct parameters
-    mock_open_instance.assert_called_once_with("dummy_file.md", "a", encoding="utf-8")
-
-    # Get the handle to the file and check if 'write' was called with the correct parameters
-    handle = mock_open_instance()
-    handle.write.assert_called_once_with("Parent Header")
-
-
-# pylint: disable=redefined-outer-name
 @pytest.mark.asyncio
-async def test_process_items(mock_model_config, sample_work_items, sample_parent_work_items):
-    """Test process_items function."""
-    ModelConfig. = MagicMock(return_value=mock_model_config)
-    session = AsyncMock()
-    file_md = "dummy_file.md"
-    summarize_items = True
-    work_item_type_to_icon = {"Bug": {"iconUrl": "http://example.com/icon.png"}}
+async def test_main():
+    """Test main function"""
+    config = MagicMock(spec=Config)
+    session = aiohttp.ClientSession()
+    config.session = session
+
+    wi_mock = AsyncMock(spec=WorkItems)
+    wi_mock.get_items.return_value = []
+    wi_mock.by_type = []
+
+    with patch("main.Config", return_value=config), patch(
+        "main.WorkItems", return_value=wi_mock
+    ):
+        await main()
+
+    wi_mock.get_items.assert_called_once_with(config, session)
+    await session.close()
 
 
-    config = ProcessConfig(session, file_md, summarize_items, work_item_type_to_icon)
-    summary_notes = await process_items(
-        config,
-        sample_work_items,
-        sample_parent_work_items,
-    )
-
-    work_item_types = [
-        WorkItemType.BUG.value,
-        WorkItemType.USER_STORY.value,
-        WorkItemType.TASK.value,
-        WorkItemType.PRODUCT_BACKLOG_ITEM.value,
-        WorkItemType.EPIC.value,
-        WorkItemType.FEATURE.value,
-        WorkItemType.OTHER.value,
+def test_iterate_and_print():
+    """Test iterate_and_print function"""
+    config = MagicMock(spec=Config)
+    session = MagicMock(spec=aiohttp.ClientSession)
+    items_by_type = [
+        WorkItemChildren(
+            type="Bug",
+            icon="",
+            items=[
+                WorkItem(
+                    id=1,
+                    type="Bug",
+                    state="New",
+                    title="Test Bug",
+                    parent=0,
+                    commentCount=0,
+                    description="",
+                    reproSteps="",
+                    acceptanceCriteria="",
+                    tags=[],
+                    url="",
+                    comments=[],
+                    icon="",
+                    children=[],
+                    children_by_type=[],
+                )
+            ],
+        )
     ]
 
-    pattern = rf"^(- ({'|'.join(work_item_types)}) \d+)$"
-    matches = re.findall(pattern, summary_notes, re.MULTILINE)
-    assert len(matches) == len(
-        summary_notes.rstrip().split("\n")
-    ), f'"{summary_notes}" does not match pattern "{pattern}"'
+    iterate_and_print(items_by_type, config, session)
+    assert config.output.write.call_count == 1
 
 
-@patch("src.config.Config")
-def test_setup_files(mock_config):
-    """Test setup_files function."""
-    mock_config.return_value = MagicMock()
-    mock_config.return_value.solution_name = "Your Solution Name"
-    mock_config.return_value.release_version = f"1.0.{datetime.now().strftime("%Y%m%d")}.1"
-    mock_config.return_value.output_folder = Path("Releases")
-    mock_config.return_value.software_summary = "mock_summary"
-
-    file_md, file_html = setup_files(mock_config.return_value)
-
-    print(
-        f"Expected HTML file location: {mock_config.return_value.output_folder / 'mock_solution-v.html'}"
+def test_write_type_header():
+    """Test write_type_header function"""
+    item = WorkItemChildren(type="Bug", icon="icon_url", items=[])
+    config = MagicMock(spec=Config)
+    write_type_header(item, config, 1, 20)
+    config.output.write.assert_called_once_with(
+        "# <img src='icon_url' alt='Bug' width='20' height='20'> Bugs\n\n"
     )
-    print(f"Actual HTML file location: {file_html}")
 
-    assert file_md.exists()
-    assert file_html.exists()
+
+def test_write_parent_header():
+    """Test write_parent_header function"""
+    item = WorkItem(
+        id=1,
+        type="Bug",
+        state="New",
+        title="Test Bug",
+        parent=0,
+        commentCount=0,
+        description="",
+        reproSteps="",
+        acceptanceCriteria="",
+        tags=[],
+        url="url",
+        comments=[],
+        icon="icon_url",
+        children=[],
+        children_by_type=[],
+    )
+    config = MagicMock(spec=Config)
+    write_parent_header(item, config, 1, 20)
+    config.output.write.assert_called_once_with(
+        "# <img src='icon_url' alt='Bug' width='20' height='20' parent='0'> [#1](url) Test Bug\n\n"
+    )
+
+
+def test_write_child_item():
+    """Test write_child_item function"""
+    item = WorkItem(
+        id=1,
+        type="Bug",
+        state="New",
+        title="Test Bug",
+        parent=0,
+        commentCount=0,
+        description="Test description",
+        reproSteps="",
+        acceptanceCriteria="",
+        tags=[],
+        url="url",
+        comments=[],
+        icon="",
+        children=[],
+        children_by_type=[],
+    )
+    config = MagicMock(spec=Config)
+    write_child_item(item, config)
+    config.output.write.assert_called_once_with(
+        "- [#1](url) **Test Bug** Test description 0\n"
+    )

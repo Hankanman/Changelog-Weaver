@@ -14,7 +14,7 @@ from shutil import rmtree
 from setuptools import find_packages, setup, Command
 
 # Package meta-data.
-NAME = "aireleasenotes"
+NAME = "auto-release-notes"
 DESCRIPTION = "A package to generate automatic release notes using llms"
 URL = "https://github.com/Hankanman/Auto-Release-Notes"
 EMAIL = "sebburrell@outlook.com"

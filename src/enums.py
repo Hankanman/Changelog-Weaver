@@ -2,6 +2,7 @@
 
 from enum import Enum
 from dataclasses import dataclass
+from re import DEBUG
 from typing import Dict, Any
 
 
@@ -32,6 +33,7 @@ class LogLevel(Enum):
     INFO = "INFO"
     WARNING = "WARNING"
     ERROR = "ERROR"
+    DEBUG = "DEBUG"
 
 
 class Field(Enum):

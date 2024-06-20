@@ -262,6 +262,7 @@ class Types:
         try:
             async with session.get(uri, headers=headers, timeout=10) as response:
                 types_data = await response.json()
+        # pylint: disable=broad-except
         except Exception as e:
             log.error("Connection Error: %s", str(e))
 
