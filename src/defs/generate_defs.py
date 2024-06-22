@@ -47,33 +47,33 @@ def generate_definitions_and_master(
         module_name = output_file.stem
         import_lines.append(f"from .{module_name} import *")
 
-    with open(master_file_path, "w", encoding="utf-8") as f:
-        f.write('"""\nThis module imports all generated models.\n"""\n')
-        f.write("\n".join(import_lines))
-        f.write("\n\n__all__ = [")
-        f.write(
+    with open(master_file_path, "w", encoding="utf-8") as file:
+        file.write('"""\nThis module imports all generated models.\n"""\n')
+        file.write("\n".join(import_lines))
+        file.write("\n\n__all__ = [")
+        file.write(
             ", ".join(
                 f'"{json_file.stem}"' for json_file in input_folder_path.glob("*.json")
             )
         )
-        f.write("]\n")
+        file.write("]\n")
 
 
 if __name__ == "__main__":
     # Folder containing JSON files
-    json_folder = "defs/json"
+    JSON_FOLDER = "defs/json"
 
     # Directory to store the generated Python files
-    output_directory = "defs"
+    OUTPUT_DIRECTORY = "defs"
 
     # Master file to import all generated files
-    master_file = "defs/__init__.py"
+    MASTER_FILE = "defs/__init__.py"
 
-    with open(master_file, "w", encoding="utf-8") as f:
+    with open(MASTER_FILE, "w", encoding="utf-8") as f:
         # Generate the dataclasses and the master file
-        generate_definitions_and_master(json_folder, output_directory, master_file)
+        generate_definitions_and_master(JSON_FOLDER, OUTPUT_DIRECTORY, MASTER_FILE)
 
     print(
-        f"Dataclasses and enums have been generated for each JSON file in {json_folder} and saved in {output_directory}."
+        f"Dataclasses and enums have been generated for each JSON file in {JSON_FOLDER} and saved in {OUTPUT_DIRECTORY}."
     )
-    print(f"A master file has been created at {master_file}.")
+    print(f"A master file has been created at {MASTER_FILE}.")

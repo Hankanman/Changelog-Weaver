@@ -1,34 +1,45 @@
-""" Tests for work_items module"""
+""" Test cases for work_items.py """
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import aiohttp
-from src.work_items import (
-    WorkItems,
-    WorkItem,
-    Types,
-)
-from src.config import Config
+from src.work_items import WorkItems, WorkItem, Types
+
+
+def mock_config():
+    """Mock the config object."""
+    config = MagicMock()
+    config.session = AsyncMock(spec=aiohttp.ClientSession)
+    config.devops.url = "http://example.com"
+    config.devops.org = "org"
+    config.devops.project = "project"
+    config.devops.query = "query"
+    config.devops.pat = "pat"
+    return config
 
 
 @pytest.mark.asyncio
 async def test_work_items_get_items():
-    """Test get_items function"""
-    config = MagicMock(spec=Config)
-    session = aiohttp.ClientSession()
-    config.session = session
+    """Test the get_items function."""
+    config = mock_config()
     wi = WorkItems()
 
-    await wi.get_items(config, session)
-    assert not wi.all
+    mock_response = {
+        "value": [{"name": "Bug", "icon": {"url": "icon_url"}, "color": "FFFFFF"}]
+    }
+
+    with patch("aiohttp.ClientSession.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value.__aenter__.return_value.json = AsyncMock(
+            return_value=mock_response
+        )
+        await wi.get_items(config, config.session)
+        assert not wi.all
 
 
 @pytest.mark.asyncio
 async def test_work_items_fetch_item():
-    """Test get_item"""
-    config = MagicMock(spec=Config)
-    session = aiohttp.ClientSession()
-    config.session = session
+    """Test the fetch_item function."""
+    config = mock_config()
     wi = WorkItems()
 
     wi.add_work_item(
@@ -50,12 +61,12 @@ async def test_work_items_fetch_item():
             children_by_type=[],
         )
     )
-    item = await wi.fetch_item(config, 1, Types(), session)
+    item = await wi.fetch_item(config, 1, Types(), config.session)
     assert item.id == 1
 
 
 def test_work_items_add_work_item():
-    """Test add_work_item function"""
+    """Test the add_work_item function."""
     wi = WorkItems()
     item = WorkItem(
         id=1,
@@ -79,7 +90,7 @@ def test_work_items_add_work_item():
 
 
 def test_work_items_group_by_type():
-    """Test group_by_type function"""
+    """Test the group_by_type function."""
     wi = WorkItems()
     item = WorkItem(
         id=1,

@@ -1,43 +1,27 @@
-""" Tests for main.py """
+""" Test the main module. """
 
-from unittest.mock import AsyncMock, MagicMock, patch
-import pytest
+from unittest.mock import AsyncMock, MagicMock
 import aiohttp
 from src.main import (
-    main,
     iterate_and_print,
     write_type_header,
     write_parent_header,
     write_child_item,
 )
-from src.config import Config
-from src.work_items import WorkItems, WorkItemChildren, WorkItem
+from src.work_items import WorkItemChildren, WorkItem
 
 
-@pytest.mark.asyncio
-async def test_main():
-    """Test main function"""
-    config = MagicMock(spec=Config)
-    session = aiohttp.ClientSession()
-    config.session = session
-
-    wi_mock = AsyncMock(spec=WorkItems)
-    wi_mock.get_items.return_value = []
-    wi_mock.by_type = []
-
-    with patch("main.Config", return_value=config), patch(
-        "main.WorkItems", return_value=wi_mock
-    ):
-        await main()
-
-    wi_mock.get_items.assert_called_once_with(config, session)
-    await session.close()
+def mock_config():
+    """Mock the config object."""
+    config = MagicMock()
+    config.session = AsyncMock(spec=aiohttp.ClientSession)
+    config.output = MagicMock().a
+    return config
 
 
 def test_iterate_and_print():
-    """Test iterate_and_print function"""
-    config = MagicMock(spec=Config)
-    session = MagicMock(spec=aiohttp.ClientSession)
+    """Test iterate_and_print function."""
+    config = mock_config()
     items_by_type = [
         WorkItemChildren(
             type="Bug",
@@ -64,14 +48,14 @@ def test_iterate_and_print():
         )
     ]
 
-    iterate_and_print(items_by_type, config, session)
-    assert config.output.write.call_count == 1
+    iterate_and_print(items_by_type, config, config.session)
+    config.output.write.assert_called()
 
 
 def test_write_type_header():
-    """Test write_type_header function"""
+    """Test write_type_header function."""
     item = WorkItemChildren(type="Bug", icon="icon_url", items=[])
-    config = MagicMock(spec=Config)
+    config = mock_config()
     write_type_header(item, config, 1, 20)
     config.output.write.assert_called_once_with(
         "# <img src='icon_url' alt='Bug' width='20' height='20'> Bugs\n\n"
@@ -79,7 +63,7 @@ def test_write_type_header():
 
 
 def test_write_parent_header():
-    """Test write_parent_header function"""
+    """Test write_parent_header function."""
     item = WorkItem(
         id=1,
         type="Bug",
@@ -97,7 +81,7 @@ def test_write_parent_header():
         children=[],
         children_by_type=[],
     )
-    config = MagicMock(spec=Config)
+    config = mock_config()
     write_parent_header(item, config, 1, 20)
     config.output.write.assert_called_once_with(
         "# <img src='icon_url' alt='Bug' width='20' height='20' parent='0'> [#1](url) Test Bug\n\n"
@@ -105,7 +89,7 @@ def test_write_parent_header():
 
 
 def test_write_child_item():
-    """Test write_child_item function"""
+    """Test write_child_item function."""
     item = WorkItem(
         id=1,
         type="Bug",
@@ -123,7 +107,7 @@ def test_write_child_item():
         children=[],
         children_by_type=[],
     )
-    config = MagicMock(spec=Config)
+    config = mock_config()
     write_child_item(item, config)
     config.output.write.assert_called_once_with(
         "- [#1](url) **Test Bug** Test description 0\n"

@@ -272,7 +272,7 @@ class Types:
                 icon=type["icon"]["url"],
                 color=str.format("#{}", type["color"]),
             )
-            for type in types_data.get("value")
+            for type in types_data["value"]
         }
         return types
 

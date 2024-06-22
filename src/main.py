@@ -9,19 +9,6 @@ from src.config import Config
 from src.work_items import WorkItems, WorkItemChildren, WorkItem
 
 
-async def main():
-    """Main function to fetch and iterate through work items by type."""
-    log.basicConfig(level=log.INFO)
-    config = Config()
-    session = config.session
-    wi = WorkItems()
-    await wi.get_items(config, session)
-    items_by_type = wi.by_type
-
-    iterate_and_print(items_by_type, config, session)
-    await session.close()
-
-
 def iterate_and_print(
     items_by_type: List[WorkItemChildren],
     config: Config,
@@ -70,6 +57,19 @@ def write_child_item(item: WorkItem, config: Config):
     config.output.write(
         f"- [#{item.id}]({item.url}) **{item.title}** {item.description} {item.parent}\n"
     )
+
+
+async def main():
+    """Main function to fetch and iterate through work items by type."""
+    log.basicConfig(level=log.INFO)
+    config = Config()
+    session = config.session
+    wi = WorkItems()
+    await wi.get_items(config, session)
+    items_by_type = wi.by_type
+
+    iterate_and_print(items_by_type, config, session)
+    await session.close()
 
 
 if __name__ == "__main__":
