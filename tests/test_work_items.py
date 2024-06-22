@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import aiohttp
-from src.work_items import WorkItems, WorkItem, Types
+from src.work_items import WorkItems, WorkItem
 
 
 def mock_config():
@@ -45,9 +45,9 @@ async def test_work_items_fetch_item():
     wi.add_work_item(
         WorkItem(
             id=1,
-            type="Bug",
+            type="Product Backlog Item",
             state="New",
-            title="Test Bug",
+            title="Test Product Backlog Item",
             parent=0,
             commentCount=0,
             description="",
@@ -61,7 +61,7 @@ async def test_work_items_fetch_item():
             children_by_type=[],
         )
     )
-    item = await wi.fetch_item(config, 1, Types(), config.session)
+    item = await wi.fetch_item(config, 1, config.session)
     assert item.id == 1
 
 

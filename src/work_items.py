@@ -41,7 +41,7 @@ class WorkItems:
     ) -> List[WorkItem]:
         """Fetch the list of work item IDs and return the ordered work items."""
         if self.types.all == {}:
-            item_types = await self.types.get(config, session)
+            await self.types.get(config, session)
         uri = f"{config.devops.url}/{config.devops.org}/{config.devops.project}/_apis/wit/wiql/{config.devops.query}"
         headers = {"Authorization": f"Basic {config.devops.pat}"}
 
@@ -51,7 +51,7 @@ class WorkItems:
         work_item_ids = [item["id"] for item in result["workItems"]]
 
         tasks = [
-            self.fetch_item(config, item_id, item_types, session, summarise)
+            self.fetch_item(config, item_id, session, summarise)
             for item_id in work_item_ids
         ]
         await asyncio.gather(*tasks)
@@ -66,11 +66,11 @@ class WorkItems:
         self,
         config: Config,
         item_id: int,
-        item_types: Types,
         session: aiohttp.ClientSession,
         get_summary: bool = True,
     ) -> WorkItem:
         """Fetch a work item by its ID asynchronously."""
+        item_types = self.types
         # Check if the work item is already in the work_items
         existing_item = self.get_work_item(item_id)
         if existing_item:
@@ -127,7 +127,7 @@ class WorkItems:
 
         self.add_work_item(work_item)
 
-        await self.get_parent(config, work_item, item_types, session, get_summary)
+        await self.get_parent(config, work_item, session, get_summary)
 
         if get_summary:
             content = (
@@ -165,7 +165,6 @@ class WorkItems:
         self,
         config: Config,
         item: WorkItem,
-        item_types: Types,
         session: aiohttp.ClientSession,
         get_summary: bool = True,
     ):
@@ -174,11 +173,9 @@ class WorkItems:
         if parent_id and not self.get_work_item(parent_id):
             try:
                 parent_item = await self.fetch_item(
-                    config, parent_id, item_types, session, get_summary
+                    config, parent_id, session, get_summary
                 )
-                await self.get_parent(
-                    config, parent_item, item_types, session, get_summary
-                )
+                await self.get_parent(config, parent_item, session, get_summary)
             except aiohttp.ClientError as e:
                 log.warning("Failed to fetch parent work item %s: %s", parent_id, e)
 
