@@ -10,6 +10,24 @@ from src.main import (
 )
 from src.work_items import WorkItemChildren, WorkItem
 
+WORK_ITEM = WorkItem(
+    id=1,
+    type="Bug",
+    state="New",
+    title="Test Bug",
+    parent=0,
+    commentCount=0,
+    description="",
+    reproSteps="",
+    acceptanceCriteria="",
+    tags=[],
+    url="url",
+    comments=[],
+    icon="icon_url",
+    children=[],
+    children_by_type=[],
+)
+
 
 def mock_config():
     """Mock the config object."""
@@ -26,25 +44,7 @@ def test_iterate_and_print():
         WorkItemChildren(
             type="Bug",
             icon="",
-            items=[
-                WorkItem(
-                    id=1,
-                    type="Bug",
-                    state="New",
-                    title="Test Bug",
-                    parent=0,
-                    commentCount=0,
-                    description="",
-                    reproSteps="",
-                    acceptanceCriteria="",
-                    tags=[],
-                    url="",
-                    comments=[],
-                    icon="",
-                    children=[],
-                    children_by_type=[],
-                )
-            ],
+            items=[WORK_ITEM],
         )
     ]
 
@@ -64,23 +64,7 @@ def test_write_type_header():
 
 def test_write_parent_header():
     """Test write_parent_header function."""
-    item = WorkItem(
-        id=1,
-        type="Bug",
-        state="New",
-        title="Test Bug",
-        parent=0,
-        commentCount=0,
-        description="",
-        reproSteps="",
-        acceptanceCriteria="",
-        tags=[],
-        url="url",
-        comments=[],
-        icon="icon_url",
-        children=[],
-        children_by_type=[],
-    )
+    item = WORK_ITEM
     config = mock_config()
     write_parent_header(item, config, 1, 20)
     config.output.write.assert_called_once_with(

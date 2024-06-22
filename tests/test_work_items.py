@@ -3,7 +3,8 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import aiohttp
-from src.work_items import WorkItems, WorkItem
+from tests.test_main import WORK_ITEM
+from src.work_items import WorkItems
 
 
 def mock_config():
@@ -42,25 +43,7 @@ async def test_work_items_fetch_item():
     config = mock_config()
     wi = WorkItems()
 
-    wi.add_work_item(
-        WorkItem(
-            id=1,
-            type="Product Backlog Item",
-            state="New",
-            title="Test Product Backlog Item",
-            parent=0,
-            commentCount=0,
-            description="",
-            reproSteps="",
-            acceptanceCriteria="",
-            tags=[],
-            url="",
-            comments=[],
-            icon="",
-            children=[],
-            children_by_type=[],
-        )
-    )
+    wi.add_work_item(WORK_ITEM)
     item = await wi.fetch_item(config, 1, config.session)
     assert item.id == 1
 
@@ -68,48 +51,14 @@ async def test_work_items_fetch_item():
 def test_work_items_add_work_item():
     """Test the add_work_item function."""
     wi = WorkItems()
-    item = WorkItem(
-        id=1,
-        type="Bug",
-        state="New",
-        title="Test Bug",
-        parent=0,
-        commentCount=0,
-        description="",
-        reproSteps="",
-        acceptanceCriteria="",
-        tags=[],
-        url="",
-        comments=[],
-        icon="",
-        children=[],
-        children_by_type=[],
-    )
-    wi.add_work_item(item)
-    assert item in wi.all
+    wi.add_work_item(WORK_ITEM)
+    assert WORK_ITEM in wi.all
 
 
 def test_work_items_group_by_type():
     """Test the group_by_type function."""
     wi = WorkItems()
-    item = WorkItem(
-        id=1,
-        type="Bug",
-        state="New",
-        title="Test Bug",
-        parent=0,
-        commentCount=0,
-        description="",
-        reproSteps="",
-        acceptanceCriteria="",
-        tags=[],
-        url="",
-        comments=[],
-        icon="",
-        children=[],
-        children_by_type=[],
-    )
-    wi.add_work_item(item)
-    grouped = wi.group_by_type([item])
+    wi.add_work_item(WORK_ITEM)
+    grouped = wi.group_by_type([WORK_ITEM])
     assert len(grouped) == 1
     assert grouped[0].type == "Bug"
