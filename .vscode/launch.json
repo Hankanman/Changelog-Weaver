@@ -17,7 +17,7 @@
       "name": "MODULE: Main",
       "type": "debugpy",
       "request": "launch",
-      "module": "src.main",
+      "module": "main",
       "console": "integratedTerminal",
       "envFile": "${workspaceFolder}/.env"
     },
@@ -38,7 +38,7 @@
       "type": "debugpy",
       "request": "launch",
       // "program": "${workspaceFolder}/main.py",
-      "module": "src.main",
+      "module": "main",
       "console": "integratedTerminal"
     }
   ]

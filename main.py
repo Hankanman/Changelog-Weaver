@@ -12,7 +12,6 @@ from src.work_items import WorkItems, WorkItemChildren, WorkItem
 def iterate_and_print(
     items_by_type: List[WorkItemChildren],
     config: Config,
-    session: aiohttp.ClientSession,
     level: int = 1,
     icon_size: int = 20,
 ):
@@ -29,7 +28,7 @@ def iterate_and_print(
             else:
                 write_child_item(item, config)
             if item.children_by_type:
-                iterate_and_print(item.children_by_type, config, session, level + 1)
+                iterate_and_print(item.children_by_type, config, level + 1)
 
 
 def write_type_header(
@@ -63,13 +62,15 @@ async def main():
     """Main function to fetch and iterate through work items by type."""
     log.basicConfig(level=log.INFO)
     config = Config()
-    session = config.session
-    wi = WorkItems()
-    await wi.get_items(config, session)
-    items_by_type = wi.by_type
 
-    iterate_and_print(items_by_type, config, session)
-    await session.close()
+    async with aiohttp.ClientSession() as session:
+        wi = WorkItems()
+        await wi.get_items(config, session)
+        items_by_type = wi.by_type
+
+        iterate_and_print(items_by_type, config)
+
+    await config.close_session()
 
 
 if __name__ == "__main__":

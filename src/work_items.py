@@ -256,12 +256,19 @@ class Types:
         uri = f"{config.devops.url}/{config.devops.org}/{config.devops.project}/_apis/wit/workitemtypes"
         headers = {"Authorization": f"Basic {config.devops.pat}"}
 
+        types_data = None
         try:
             async with session.get(uri, headers=headers, timeout=10) as response:
                 types_data = await response.json()
-        # pylint: disable=broad-except
-        except Exception as e:
+        except aiohttp.ClientError as e:
             log.error("Connection Error: %s", str(e))
+            return {}
+
+        if not types_data:
+            log.error("No data received for work item types")
+            return {}
+
+        types_values = types_data.get("value", [])
 
         types = {
             type["name"]: WorkItemType(
@@ -269,7 +276,7 @@ class Types:
                 icon=type["icon"]["url"],
                 color=str.format("#{}", type["color"]),
             )
-            for type in types_data["value"]
+            for type in types_values
         }
         return types
 
@@ -363,9 +370,11 @@ async def main(output_json: bool, output_folder: str):
     """Main function to fetch work items and save them to a file."""
     log.basicConfig(level=log.WARNING)
     config = Config()
-    session = config.session
-    wi = WorkItems()
-    await wi.get_items(config, session)
+
+    async with aiohttp.ClientSession() as session:
+        wi = WorkItems()
+        await wi.get_items(config, session)
+
     items = wi.all
     types = wi.types
 

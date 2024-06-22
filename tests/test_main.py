@@ -2,7 +2,7 @@
 
 from unittest.mock import AsyncMock, MagicMock
 import aiohttp
-from src.main import (
+from main import (
     iterate_and_print,
     write_type_header,
     write_parent_header,

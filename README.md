@@ -115,7 +115,7 @@ If the `.env` file does not exist, it will be generated with blank values on the
 To run the script, execute the following command in your terminal:
 
 ```bash
-python -m src.main
+python -m main
 ```
 
 The script will generate the release notes in the specified output folder in both Markdown and HTML formats.

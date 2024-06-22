@@ -59,6 +59,7 @@ class Output:
     def __init__(self, folder: str, name: str, version: str):
         try:
             folder_path = Path(".") / folder
+            folder_path.mkdir(parents=True, exist_ok=True)
             self.path = (folder_path / f"{name}-v{version}.md").resolve()
             if self.path.exists():
                 self.path.unlink()
@@ -299,7 +300,16 @@ class Config:
     model: Model
     prompts: Prompt
     output: Output
-    session: aiohttp.ClientSession
+    session: Optional[aiohttp.ClientSession] = None
+
+    async def create_session(self):
+        """Create an aiohttp session."""
+        self.session = aiohttp.ClientSession()
+
+    async def close_session(self):
+        """Close the aiohttp session."""
+        if self.session:
+            await self.session.close()
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -362,4 +372,4 @@ class Config:
             version=self.software.version,
         )
 
-        self.session = aiohttp.ClientSession()
+        self.session = None
