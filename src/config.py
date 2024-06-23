@@ -9,6 +9,10 @@ import aiohttp
 from dotenv import load_dotenv
 from .model import Model
 
+
+# read contents of .env.template file in root dir and set to DEFUALT_ENV
+DEFAULT_ENV = open(Path(".") / ".env.template", encoding="utf-8").read()
+
 DEFAULT_ENV = """
 # DevOps and OpenAI Configuration
 ORG_NAME=
@@ -24,6 +28,7 @@ MODEL=gpt-4o
 GPT_BASE_URL=https://api.openai.com/v1
 DEVOPS_BASE_URL=https://dev.azure.com
 DEVOPS_API_VERSION=6.0
+LOG_LEVEL=INFO
 """
 
 
@@ -205,17 +210,21 @@ class Prompt:
     """
 
     def __init__(self, name: str, brief: str, release_notes: str):
-        self._summary = (
-            f"You are a developer working on a software project called {name}. You have been asked to review the following and write a summary "
-            f"of the work completed for this release. Please keep your summary to one paragraph, do not write any bullet points or list, do not group your response in any way, "
-            f"just a natural language explanation of what was accomplished. The following is a high-level summary of the purpose of the software for your context: {brief}\n"
-            f"The following is a high-level summary of the release notes for your context: {release_notes}\n"
-        )
-        self._item = (
-            "You are a developer writing a summary of the work completed for the given devops work item. Ignore timestamps and links. Return only the description text with no titles, "
-            "headers, or formatting, if there is nothing to describe, return 'Addressed', always assume that the work item was completed. Do not list filenames or links. "
-            "Please provide a single sentence of the work completed for the following devops work item details:\n"
-        )
+        self._summary = f"""You are a developer working on a software project called {name}. You
+            have been asked to review the following and write a summary of the
+            work completed for this release. Please keep your summary to one
+            paragraph, do not write any bullet points or list, do not group
+            your response in any way, just a natural language explanation of
+            what was accomplished. The following is a high-level summary of the
+            purpose of the software for your context: {brief}\nThe following is
+            a high-level summary of the release notes for your context:
+            {release_notes}\n"""
+        self._item = """You are a developer writing a summary of the work completed for the given
+            devops work item. Ignore timestamps and links. Return only the description
+            text with no titles, headers, or formatting, if there is nothing to
+            describe, return 'Addressed', always assume that the work item was
+            completed. Do not list filenames or links. Please provide a single sentence
+            of the work completed for the following devops work item details:\n"""
 
     @property
     def summary(self):
@@ -321,19 +330,19 @@ class Config:
         model: Optional[Model] = None,
         prompts: Optional[Prompt] = None,
         output: Optional[Output] = None,
+        log_level: str = "INFO",
     ):
-        # Check if .env file exists, if not, create it with default values
+        # Check if .env file exists, if not, use the defaults.env file
         if not env_path.exists():
-            try:
-                with open(env_path, "w", encoding="utf-8") as env_file:
-                    env_file.write(DEFAULT_ENV)
-            except FileNotFoundError as e:
-                print(f"Error occurred while creating .env file: {e}")
-            except PermissionError as e:
-                print(f"Error occurred while creating .env file: {e}")
+            default_env_path = Path(__file__).parent.parent / "defaults.env"
+            if default_env_path.exists():
+                load_dotenv(default_env_path)
+            else:
+                raise FileNotFoundError("Default environment file not found.")
+        else:
+            load_dotenv(env_path)
 
-        # Load environment variables from the .env file
-        load_dotenv(env_path)
+        self.log_level = str(os.getenv("LOG_LEVEL", log_level))
 
         # Set default output folder if not provided
         if output_folder is None:

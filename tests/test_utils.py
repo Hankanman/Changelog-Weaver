@@ -1,14 +1,6 @@
 """ Tests for utils module"""
 
-import logging as log
-from src.utils import setup_logs, create_contents, format_date, clean_string
-from src.enums import LogLevel
-
-
-def test_setup_logs():
-    """Test setup_logs function"""
-    setup_logs(LogLevel.DEBUG)
-    assert log.getLogger().level == 30
+from src.utils import create_contents, format_date, clean_string
 
 
 def test_create_contents():

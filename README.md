@@ -134,7 +134,7 @@ You can customize the GPT prompts by editing `SUMMARY_PROMPT` and `ITEM_PROMPT` 
 
 ### Logging
 
-The script uses Python's logging module to provide detailed logs of its execution. You can adjust the logging level in `main.py` by modifying the `setup_logs` function call.
+The script uses Python's logging module to provide detailed logs of its execution.
 
 ## Contributing
 

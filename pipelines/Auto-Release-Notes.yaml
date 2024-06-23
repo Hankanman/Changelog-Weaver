@@ -89,6 +89,7 @@ steps:
       SOFTWARE_SUMMARY="$SOFTWARE_SUMMARY"
       OUTPUT_FOLDER="${{parameters.outputFolder}}"
       DEVOPS_API_VERSION="6.0"
+      LOG_LEVEL=INFO
       EOF
     env:
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)

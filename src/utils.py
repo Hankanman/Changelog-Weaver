@@ -6,23 +6,7 @@ import logging as log
 import json
 from typing import List
 import aiohttp
-from .enums import LogLevel
 from .config import Config as c
-
-
-def setup_logs(level: LogLevel = LogLevel.INFO):
-    """
-    Sets up logging configuration with the specified logging level.
-
-    Parameters:
-        level (LogLevel): The logging level to set. Defaults to LogLevel.INFO.
-
-    Returns:
-        None
-    """
-    log.basicConfig(
-        level=level.value, format="%(asctime)s - %(levelname)s - %(message)s"
-    )
 
 
 def create_contents(input_array: List[str]) -> str:

@@ -5,8 +5,8 @@ import asyncio
 import logging as log
 from typing import List
 import aiohttp
-from src.config import Config
-from src.work_items import WorkItems, WorkItemChildren, WorkItem
+from .src.config import Config
+from .src.work_items import WorkItems, WorkItemChildren, WorkItem
 
 
 def iterate_and_print(
@@ -21,47 +21,54 @@ def iterate_and_print(
     for item_group in items_by_type:
         print(f"{indent} Type: {item_group.type}")
         write_type_header(item_group, config, level, icon_size)
-        for item in item_group.items:
-            print(f" - WorkItem ID: {item.id}, Title: {item.title}")
-            if len(item.children) > 0:
-                write_parent_header(item, config, level, icon_size)
+        for wi in item_group.items:
+            print(f" - WorkItem ID: {wi.id}, Title: {wi.title}")
+            if len(wi.children) > 0:
+                write_parent_header(wi, config, level, icon_size)
             else:
-                write_child_item(item, config)
-            if item.children_by_type:
-                iterate_and_print(item.children_by_type, config, level + 1)
+                write_child_item(wi, config)
+            if wi.children_by_type:
+                iterate_and_print(wi.children_by_type, config, level + 1)
 
 
-def write_type_header(
-    item: WorkItemChildren, config: Config, level: int, icon_size: int
-):
+def write_type_header(wi: WorkItemChildren, config: Config, level: int, icon_size: int):
     """Generate and write the header for the parent item."""
-    indent = "#" * level
-    header = f"{indent} <img src='{item.icon}' alt='{item.type}' width='{icon_size}' height='{icon_size}'> {item.type}s\n\n"
-    config.output.write(header)
-
-
-def write_parent_header(item: WorkItem, config: Config, level: int, icon_size: int):
-    """Generate and write the header for the parent item."""
-    parent_head_link = f"[#{item.id}]({item.url}) " if item.id != 0 else ""
     indent = "#" * level
     header = (
-        f"{indent} <img src='{item.icon}' alt='{item.type}' width='{icon_size}' height='{icon_size}' parent='{item.parent}'> "
-        f"{parent_head_link}{item.title}\n\n"
+        f"{indent} "
+        f"<img src='{wi.icon}' w='{icon_size}' h='{icon_size}'> "
+        f"{wi.type}s\n\n"
     )
     config.output.write(header)
 
 
-def write_child_item(item: WorkItem, config: Config):
+def write_parent_header(wi: WorkItem, config: Config, level: int, icon_size: int):
+    """Generate and write the header for the parent item."""
+    parent_head_link = f"[#{wi.id}]({wi.url}) " if wi.id != 0 else ""
+    indent = "#" * level
+    header = (
+        f"{indent} "
+        f"<img src='{wi.icon}' w='{icon_size}' h='{icon_size}' parent='{wi.parent}'>"
+        f" {parent_head_link}{wi.title}\n\n"
+    )
+    config.output.write(header)
+
+
+def write_child_item(wi: WorkItem, config: Config):
     """Write the child item to the markdown file."""
     config.output.write(
-        f"- [#{item.id}]({item.url}) **{item.title}** {item.description} {item.parent}\n"
+        f"- [#{wi.id}]({wi.url}) **{wi.title}** {wi.description} {wi.parent}\n"
     )
 
 
 async def main():
     """Main function to fetch and iterate through work items by type."""
-    log.basicConfig(level=log.INFO)
     config = Config()
+    log.basicConfig(
+        level=config.log_level,  # Set the logging level to INFO
+        format="%(asctime)s - %(levelname)s - %(message)s",  # Format for the log messages
+        handlers=[log.StreamHandler()],  # Output logs to the console
+    )
 
     async with aiohttp.ClientSession() as session:
         wi = WorkItems()
@@ -71,6 +78,7 @@ async def main():
         iterate_and_print(items_by_type, config)
 
     await config.close_session()
+    input("Press Enter to exit...")
 
 
 if __name__ == "__main__":

@@ -64,6 +64,8 @@ MODEL_BASE_URL=https://api.openai.com/v1
 DEVOPS_BASE_URL=https://dev.azure.com
 # The version of the Azure DevOps API to use.
 DEVOPS_API_VERSION=6.0
+# The logging level for the application.
+LOG_LEVEL=INFO
 EOL
 fi
 
