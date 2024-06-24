@@ -40,8 +40,12 @@ def format_date(date_str: str) -> str:
         date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S.%fZ")
         return date_obj.strftime("%d-%m-%Y %H:%M")
     except ValueError:
-        log.warning("Invalid modified date format: %s", date_str)
-        return date_str
+        try:
+            date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
+            return date_obj.strftime("%d-%m-%Y %H:%M")
+        except ValueError:
+            log.warning("Invalid modified date format: %s", date_str)
+            return date_str
 
 
 def clean_string(string: str, min_length: int = 30) -> str:

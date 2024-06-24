@@ -5,8 +5,8 @@ import asyncio
 import logging as log
 from typing import List
 import aiohttp
-from .src.config import Config
-from .src.work_items import WorkItems, WorkItemChildren, WorkItem
+from src.config import Config
+from src.work_items import WorkItems, WorkItemChildren, WorkItem
 
 
 def iterate_and_print(
@@ -19,10 +19,10 @@ def iterate_and_print(
     indent = "#" * level
     icon_size = icon_size - level if len(indent) > 1 else icon_size
     for item_group in items_by_type:
-        print(f"{indent} Type: {item_group.type}")
+        log.info(f"{indent} Type: {item_group.type}")
         write_type_header(item_group, config, level, icon_size)
         for wi in item_group.items:
-            print(f" - WorkItem ID: {wi.id}, Title: {wi.title}")
+            log.info(f" - WorkItem ID: {wi.id}, Title: {wi.title}")
             if len(wi.children) > 0:
                 write_parent_header(wi, config, level, icon_size)
             else:
@@ -35,9 +35,7 @@ def write_type_header(wi: WorkItemChildren, config: Config, level: int, icon_siz
     """Generate and write the header for the parent item."""
     indent = "#" * level
     header = (
-        f"{indent} "
-        f"<img src='{wi.icon}' w='{icon_size}' h='{icon_size}'> "
-        f"{wi.type}s\n\n"
+        f"{indent} " f"<img src='{wi.icon}' height='{icon_size}'> " f"{wi.type}s\n\n"
     )
     config.output.write(header)
 
@@ -48,7 +46,7 @@ def write_parent_header(wi: WorkItem, config: Config, level: int, icon_size: int
     indent = "#" * level
     header = (
         f"{indent} "
-        f"<img src='{wi.icon}' w='{icon_size}' h='{icon_size}' parent='{wi.parent}'>"
+        f"<img src='{wi.icon}' height='{icon_size}' parent='{wi.parent}'>"
         f" {parent_head_link}{wi.title}\n\n"
     )
     config.output.write(header)

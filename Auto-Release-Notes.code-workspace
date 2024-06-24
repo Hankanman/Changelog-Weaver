@@ -13,7 +13,9 @@
   "extensions": {
     "recommendations": [
       "visualstudioexptteam.vscodeintellicode",
-      "donjayamanne.python-extension-pack"
+      "donjayamanne.python-extension-pack",
+      "ms-python.black-formatter",
+      "ms-python.pylint"
     ]
   }
 }

@@ -13,7 +13,9 @@
 		"kevinrose.vsc-python-indent",
 		"ms-python.autopep8",
 		"ms-azure-devops.azure-pipelines",
-		"github.vscode-github-actions"
+		"github.vscode-github-actions",
+		"ms-python.black-formatter",
+		"ms-python.pylint"
 	],
 	// List of extensions recommended by VS Code that should not be recommended for users of this workspace.
 	"unwantedRecommendations": [

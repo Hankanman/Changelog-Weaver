@@ -3,6 +3,7 @@
 import os
 import base64
 from pathlib import Path
+import logging as log
 from dataclasses import dataclass, field
 from typing import List, Optional
 import aiohttp
@@ -11,7 +12,7 @@ from .model import Model
 
 
 # read contents of .env.template file in root dir and set to DEFUALT_ENV
-DEFAULT_ENV = open(Path(".") / ".env.template", encoding="utf-8").read()
+DEFAULT_ENV = open(Path(".") / "defaults.env", encoding="utf-8").read()
 
 DEFAULT_ENV = """
 # DevOps and OpenAI Configuration
@@ -72,9 +73,9 @@ class Output:
             folder_path.mkdir(parents=True, exist_ok=True)
             self.setup(name, version)
         except FileNotFoundError as e:
-            print(f"Error occurred while initializing Output: {e}")
+            log.error(f"Error occurred while initializing Output: {e}")
         except PermissionError as e:
-            print(f"Error occurred while initializing Output: {e}")
+            log.error(f"Error occurred while initializing Output: {e}")
 
     def write(self, content: str):
         """Write content to the output file."""
@@ -99,27 +100,27 @@ class Output:
                 f"<TABLEOFCONTENTS>\n\n"
             )
         except FileNotFoundError as e:
-            print(f"Error occurred while setting up initial content: {e}")
+            log.error(f"Error occurred while setting up initial content: {e}")
         except PermissionError as e:
-            print(f"Error occurred while setting up initial content: {e}")
+            log.error(f"Error occurred while setting up initial content: {e}")
 
     def set_summary(self, summary: str):
         """Set the summary of the release notes."""
         try:
             self.write(self.read().replace("<NOTESSUMMARY>", summary))
         except FileNotFoundError as e:
-            print(f"Error occurred while setting summary: {e}")
+            log.error(f"Error occurred while setting summary: {e}")
         except PermissionError as e:
-            print(f"Error occurred while setting summary: {e}")
+            log.error(f"Error occurred while setting summary: {e}")
 
     def set_toc(self, toc: str):
         """Set the table of contents of the release notes."""
         try:
             self.write(self.read().replace("<TABLEOFCONTENTS>", toc))
         except FileNotFoundError as e:
-            print(f"Error occurred while setting table of contents: {e}")
+            log.error(f"Error occurred while setting table of contents: {e}")
         except PermissionError as e:
-            print(f"Error occurred while setting table of contents: {e}")
+            log.error(f"Error occurred while setting table of contents: {e}")
 
     async def finalize(self, session: aiohttp.ClientSession):
         """
@@ -143,7 +144,7 @@ class Output:
                     with open(file_html, "w", encoding="utf-8") as file:
                         file.write(html_text)
             except aiohttp.ClientError as e:
-                print(f"Error occurred while making HTTP request: {e}")
+                log.error(f"Error occurred while making HTTP request: {e}")
 
 
 @dataclass
@@ -343,6 +344,11 @@ class Config:
             load_dotenv(env_path)
 
         self.log_level = str(os.getenv("LOG_LEVEL", log_level))
+        log.basicConfig(
+            level=self.log_level,  # Set the logging level to INFO
+            format="%(asctime)s - %(levelname)s - %(message)s",  # Format for the log messages
+            handlers=[log.StreamHandler()],  # Output logs to the console
+        )
 
         # Set default output folder if not provided
         if output_folder is None:

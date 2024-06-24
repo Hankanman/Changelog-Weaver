@@ -78,7 +78,7 @@ class Model:
     ) -> str:
         max_retries = 3
         retry_delay = 2  # seconds
-        retry_message = "Retrying in %s seconds...", retry_delay
+        retry_message = ("Retrying in %s seconds...", retry_delay)
 
         for attempt in range(max_retries):
             try:

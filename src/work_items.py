@@ -41,14 +41,22 @@ class WorkItems:
     ) -> List[WorkItem]:
         """Fetch the list of work item IDs and return the ordered work items."""
         if self.types.all == {}:
+            log.info("Fetching Work Item Types")
             await self.types.get(config, session)
         uri = f"{config.devops.url}/{config.devops.org}/{config.devops.project}/_apis/wit/wiql/{config.devops.query}"
         headers = {"Authorization": f"Basic {config.devops.pat}"}
 
-        async with session.get(uri, headers=headers, timeout=10) as response:
-            result = await response.json()
+        try:
+            log.info("Fetching Work Items")
+            async with session.get(uri, headers=headers, timeout=10) as response:
+                result = await response.json()
+        except aiohttp.ClientError:
+            log.error("Failed to fetch work item data")
+            return []
 
         work_item_ids = [item["id"] for item in result["workItems"]]
+
+        log.info("Fetching Work Item Details")
 
         tasks = [
             self.fetch_item(config, item_id, session, summarise)
@@ -56,7 +64,7 @@ class WorkItems:
         ]
         await asyncio.gather(*tasks)
 
-        log.debug("Fetched all WorkItems")
+        log.info("Fetched all Work Items")
 
         self.all.sort(key=lambda item: item.id)
         self.by_type = self.group_by_type(self.build_work_item_tree())
@@ -200,7 +208,7 @@ class WorkItems:
                     )
             else:
                 root_items.append(item)
-                print(f"Root item: {item.id}")
+                log.info(f"Root item: {item.id}")
 
         return root_items
 
@@ -368,8 +376,12 @@ class WorkItem(BaseModel):
 
 async def main(output_json: bool, output_folder: str):
     """Main function to fetch work items and save them to a file."""
-    log.basicConfig(level=log.WARNING)
     config = Config()
+    log.basicConfig(
+        level=config.log_level,  # Set the logging level to INFO
+        format="%(asctime)s - %(levelname)s - %(message)s",  # Format for the log messages
+        handlers=[log.StreamHandler()],  # Output logs to the console
+    )
 
     async with aiohttp.ClientSession() as session:
         wi = WorkItems()
@@ -430,10 +442,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     start_time = time.time()
     work_items = asyncio.run(main(args.output_json, args.output_folder))
-    print(
-        "Retrieved",
-        len(work_items),
-        "Work Items in",
-        round((time.time() - start_time) * 1000),
-        "milliseconds",
+    log.info(
+        f"""Retrieved {len(work_items)} Work Items in {round((time.time() - start_time) * 1000)} milliseconds"""
     )
