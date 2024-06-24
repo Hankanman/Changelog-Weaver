@@ -6,31 +6,10 @@ from pathlib import Path
 import logging as log
 from dataclasses import dataclass, field
 from typing import List, Optional
+import shutil
 import aiohttp
 from dotenv import load_dotenv
 from .model import Model
-
-
-# read contents of .env.template file in root dir and set to DEFUALT_ENV
-DEFAULT_ENV = open(Path(".") / "defaults.env", encoding="utf-8").read()
-
-DEFAULT_ENV = """
-# DevOps and OpenAI Configuration
-ORG_NAME=
-PROJECT_NAME=
-SOLUTION_NAME=
-RELEASE_VERSION=
-RELEASE_QUERY=
-PAT=
-GPT_API_KEY=
-SOFTWARE_SUMMARY=
-OUTPUT_FOLDER=Releases
-MODEL=gpt-4o
-GPT_BASE_URL=https://api.openai.com/v1
-DEVOPS_BASE_URL=https://dev.azure.com
-DEVOPS_API_VERSION=6.0
-LOG_LEVEL=INFO
-"""
 
 
 @dataclass
@@ -73,9 +52,9 @@ class Output:
             folder_path.mkdir(parents=True, exist_ok=True)
             self.setup(name, version)
         except FileNotFoundError as e:
-            log.error(f"Error occurred while initializing Output: {e}")
+            log.error("Error occurred while initializing Output: %s", e)
         except PermissionError as e:
-            log.error(f"Error occurred while initializing Output: {e}")
+            log.error("Error occurred while initializing Output: %s", e)
 
     def write(self, content: str):
         """Write content to the output file."""
@@ -100,27 +79,27 @@ class Output:
                 f"<TABLEOFCONTENTS>\n\n"
             )
         except FileNotFoundError as e:
-            log.error(f"Error occurred while setting up initial content: {e}")
+            log.error("Error occurred while setting up initial content: %s", e)
         except PermissionError as e:
-            log.error(f"Error occurred while setting up initial content: {e}")
+            log.error("Error occurred while setting up initial content: %s", e)
 
     def set_summary(self, summary: str):
         """Set the summary of the release notes."""
         try:
             self.write(self.read().replace("<NOTESSUMMARY>", summary))
         except FileNotFoundError as e:
-            log.error(f"Error occurred while setting summary: {e}")
+            log.error("Error occurred while setting summary: %s", e)
         except PermissionError as e:
-            log.error(f"Error occurred while setting summary: {e}")
+            log.error("Error occurred while setting summary: %s", e)
 
     def set_toc(self, toc: str):
         """Set the table of contents of the release notes."""
         try:
             self.write(self.read().replace("<TABLEOFCONTENTS>", toc))
         except FileNotFoundError as e:
-            log.error(f"Error occurred while setting table of contents: {e}")
+            log.error("Error occurred while setting table of contents: %s", e)
         except PermissionError as e:
-            log.error(f"Error occurred while setting table of contents: {e}")
+            log.error("Error occurred while setting table of contents: %s", e)
 
     async def finalize(self, session: aiohttp.ClientSession):
         """
@@ -144,7 +123,7 @@ class Output:
                     with open(file_html, "w", encoding="utf-8") as file:
                         file.write(html_text)
             except aiohttp.ClientError as e:
-                log.error(f"Error occurred while making HTTP request: {e}")
+                log.error("Error occurred while making HTTP request: %s", e)
 
 
 @dataclass
@@ -211,20 +190,20 @@ class Prompt:
     """
 
     def __init__(self, name: str, brief: str, release_notes: str):
-        self._summary = f"""You are a developer working on a software project called {name}. You
-            have been asked to review the following and write a summary of the
-            work completed for this release. Please keep your summary to one
-            paragraph, do not write any bullet points or list, do not group
-            your response in any way, just a natural language explanation of
-            what was accomplished. The following is a high-level summary of the
-            purpose of the software for your context: {brief}\nThe following is
-            a high-level summary of the release notes for your context:
+        self._summary = f"""You are a developer working on a software project called {name}. You \
+            have been asked to review the following and write a summary of the \
+            work completed for this release. Please keep your summary to one \
+            paragraph, do not write any bullet points or list, do not group \
+            your response in any way, just a natural language explanation of \
+            what was accomplished. The following is a high-level summary of the \
+            purpose of the software for your context: {brief}\nThe following is \
+            a high-level summary of the release notes for your context: \
             {release_notes}\n"""
-        self._item = """You are a developer writing a summary of the work completed for the given
-            devops work item. Ignore timestamps and links. Return only the description
-            text with no titles, headers, or formatting, if there is nothing to
-            describe, return 'Addressed', always assume that the work item was
-            completed. Do not list filenames or links. Please provide a single sentence
+        self._item = """You are a developer writing a summary of the work completed for the given \
+            devops work item. Ignore timestamps and links. Return only the description \
+            text with no titles, headers, or formatting, if there is nothing to \
+            describe, return 'Addressed', always assume that the work item was \
+            completed. Do not list filenames or links. Please provide a single sentence \
             of the work completed for the following devops work item details:\n"""
 
     @property
@@ -333,20 +312,26 @@ class Config:
         output: Optional[Output] = None,
         log_level: str = "INFO",
     ):
-        # Check if .env file exists, if not, use the defaults.env file
-        if not env_path.exists():
-            default_env_path = Path(__file__).parent.parent / "defaults.env"
-            if default_env_path.exists():
-                load_dotenv(default_env_path)
-            else:
-                raise FileNotFoundError("Default environment file not found.")
-        else:
-            load_dotenv(env_path)
 
         self.log_level = str(os.getenv("LOG_LEVEL", log_level))
         log.basicConfig(
             level=self.log_level,  # Set the logging level to INFO
-            format="%(asctime)s - %(levelname)s - %(message)s",  # Format for the log messages
+            format="%(levelname)s | %(message)s",  # Format for the log messages
+            handlers=[log.StreamHandler()],  # Output logs to the console
+        )
+        self.env_path = env_path
+
+        # Ensure .env file is present or create it from defaults.env
+        if not self.ensure_env_file():
+            self.valid_env = False
+            return  # Stop initialization if .env was just created
+        self.valid_env = True
+
+        load_dotenv(env_path)
+
+        log.basicConfig(
+            level=self.log_level,  # Set the logging level
+            format="%(levelname)s | %(message)s",  # Format for the log messages
             handlers=[log.StreamHandler()],  # Output logs to the console
         )
 
@@ -388,3 +373,56 @@ class Config:
         )
 
         self.session = None
+
+    def ensure_env_file(self) -> bool:
+        """Ensure that .env file exists, if not, create it from defaults.env and validate."""
+        if not self.env_path.exists():
+            default_env_path = Path(__file__).resolve().parent.parent / "defaults.env"
+            if default_env_path.exists():
+                shutil.copy(default_env_path, self.env_path)
+                log.info(
+                    ".env file created from defaults.env. Please complete the .env file located at: %s",
+                    self.env_path.resolve(),
+                )
+                return False  # Indicate that the program should stop
+            else:
+                raise FileNotFoundError("Default environment file not found.")
+        else:
+            log.info(".env file found. Validating values...")
+            if not self.validate_env_file():
+                log.error(
+                    "Invalid .env file values. Please complete the .env file located at: %s",
+                    self.env_path.resolve(),
+                )
+                return False  # Indicate that the program should stop
+            log.info(".env file is valid.")
+            return True  # Indicate that the program can continue
+
+    def validate_env_file(self) -> bool:
+        """Validate the values in the .env file."""
+        required_keys = [
+            "ORG_NAME",
+            "PROJECT_NAME",
+            "SOLUTION_NAME",
+            "RELEASE_VERSION",
+            "RELEASE_QUERY",
+            "PAT",
+            "GPT_API_KEY",
+            "SOFTWARE_SUMMARY",
+            "OUTPUT_FOLDER",
+            "MODEL",
+            "MODEL_BASE_URL",
+            "DEVOPS_BASE_URL",
+            "DEVOPS_API_VERSION",
+            "LOG_LEVEL",
+        ]
+
+        missing_vars = [key for key in required_keys if not os.getenv(key)]
+
+        if len(missing_vars) > 0:
+            log.error(
+                "Missing required environment variable(s): %s",
+                ", ".join(missing_vars),
+            )
+            return False
+        return True

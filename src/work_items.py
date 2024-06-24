@@ -64,7 +64,7 @@ class WorkItems:
         ]
         await asyncio.gather(*tasks)
 
-        log.info("Fetched all Work Items")
+        log.info("Fetched %s Work Items", len(self.all))
 
         self.all.sort(key=lambda item: item.id)
         self.by_type = self.group_by_type(self.build_work_item_tree())
@@ -208,7 +208,6 @@ class WorkItems:
                     )
             else:
                 root_items.append(item)
-                log.info(f"Root item: {item.id}")
 
         return root_items
 
@@ -264,7 +263,7 @@ class Types:
         uri = f"{config.devops.url}/{config.devops.org}/{config.devops.project}/_apis/wit/workitemtypes"
         headers = {"Authorization": f"Basic {config.devops.pat}"}
 
-        types_data = None
+        types_data = []
         try:
             async with session.get(uri, headers=headers, timeout=10) as response:
                 types_data = await response.json()
@@ -378,9 +377,9 @@ async def main(output_json: bool, output_folder: str):
     """Main function to fetch work items and save them to a file."""
     config = Config()
     log.basicConfig(
-        level=config.log_level,  # Set the logging level to INFO
-        format="%(asctime)s - %(levelname)s - %(message)s",  # Format for the log messages
-        handlers=[log.StreamHandler()],  # Output logs to the console
+        level=config.log_level,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[log.StreamHandler()],
     )
 
     async with aiohttp.ClientSession() as session:
@@ -443,5 +442,7 @@ if __name__ == "__main__":
     start_time = time.time()
     work_items = asyncio.run(main(args.output_json, args.output_folder))
     log.info(
-        f"""Retrieved {len(work_items)} Work Items in {round((time.time() - start_time) * 1000)} milliseconds"""
+        "Retrieved %s  Work Items in %s milliseconds",
+        len(work_items),
+        round((time.time() - start_time) * 1000),
     )

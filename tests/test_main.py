@@ -9,24 +9,7 @@ from main import (
     write_child_item,
 )
 from src.work_items import WorkItemChildren, WorkItem
-
-WORK_ITEM = WorkItem(
-    id=1,
-    type="Bug",
-    state="New",
-    title="Test Bug",
-    parent=0,
-    commentCount=0,
-    description="",
-    reproSteps="",
-    acceptanceCriteria="",
-    tags=[],
-    url="url",
-    comments=[],
-    icon="icon_url",
-    children=[],
-    children_by_type=[],
-)
+from tests import WORK_ITEM
 
 
 def mock_config():
@@ -48,17 +31,17 @@ def test_iterate_and_print():
         )
     ]
 
-    iterate_and_print(items_by_type, config, config.session)
+    iterate_and_print(items_by_type, config)
     config.output.write.assert_called()
 
 
 def test_write_type_header():
     """Test write_type_header function."""
-    item = WorkItemChildren(type="Bug", icon="icon_url", items=[])
+    item = WorkItemChildren(type="Bug", icon="icon_url", items=[WORK_ITEM])
     config = mock_config()
     write_type_header(item, config, 1, 20)
     config.output.write.assert_called_once_with(
-        "# <img src='icon_url' alt='Bug' width='20' height='20'> Bugs\n\n"
+        "# <img src='icon_url' height='20'> Bugs\n\n"
     )
 
 
@@ -68,7 +51,7 @@ def test_write_parent_header():
     config = mock_config()
     write_parent_header(item, config, 1, 20)
     config.output.write.assert_called_once_with(
-        "# <img src='icon_url' alt='Bug' width='20' height='20' parent='0'> [#1](url) Test Bug\n\n"
+        "# <img src='icon_url' height='20' parent='0'> [#1](url) Test Bug\n\n"
     )
 
 

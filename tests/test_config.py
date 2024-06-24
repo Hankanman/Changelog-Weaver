@@ -1,6 +1,5 @@
 """ Test for config module"""
 
-import aiohttp
 from src.config import Config, Output, DevOps, Prompt, Software
 from src.model import Model
 
@@ -17,9 +16,9 @@ def test_config_initialization():
 
 def test_output_initialization():
     """Test output_init"""
-    output = Output("test_folder", "test_name", "1.0")
+    output = Output("Releases", "test_name", "1.0")
     assert output.path.name == "test_name-v1.0.md"
-    assert output.path.parent.name == "test_folder"
+    assert output.path.parent.name == "Releases"
 
 
 def test_devops_initialization():
