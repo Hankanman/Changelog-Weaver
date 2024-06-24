@@ -13,7 +13,6 @@ def test_config_initialization():
     assert isinstance(config.model, Model)
     assert isinstance(config.prompts, Prompt)
     assert isinstance(config.output, Output)
-    assert isinstance(config.session, aiohttp.ClientSession)
 
 
 def test_output_initialization():

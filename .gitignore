@@ -1,5 +1,5 @@
 # Project specific files
-releases/
+Releases/
 tests/*.json
 src/defs/json/*.json
 dummy_file.md
