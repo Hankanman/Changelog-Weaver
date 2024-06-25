@@ -45,7 +45,7 @@ def write_parent_header(wi: WorkItem, config: Config, level: int, icon_size: int
     indent = "#" * level
     header = (
         f"{indent} "
-        f"<img src='{wi.icon}' height='{icon_size}' parent='{wi.parent}'>"
+        f"<img src='{wi.icon}' height='{icon_size}'>"
         f" {parent_head_link}{wi.title}\n\n"
     )
     config.output.write(header)
@@ -54,9 +54,7 @@ def write_parent_header(wi: WorkItem, config: Config, level: int, icon_size: int
 
 def write_child_item(wi: WorkItem, config: Config, level: int):
     """Write the child item to the markdown file."""
-    config.output.write(
-        f"- [#{wi.id}]({wi.url}) **{wi.title}** {wi.description} {wi.parent}\n"
-    )
+    config.output.write(f"- [#{wi.id}]({wi.url}) **{wi.title}** {wi.summary}\n")
     log.info("%s%s | %s", " " * (level + 1), wi.id, wi.title)
 
 
@@ -69,7 +67,7 @@ async def main():
 
     async with aiohttp.ClientSession() as session:
         wi = WorkItems()
-        await wi.get_items(config, session)
+        await wi.get_items(config)
         items_by_type = wi.by_type
 
         iterate_and_print(items_by_type, config)
