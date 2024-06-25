@@ -4,6 +4,8 @@ from dataclasses import dataclass
 import logging as log
 from typing import List, Dict, Any
 import re
+
+# Third party imports
 import openai
 import ollama
 
@@ -28,6 +30,7 @@ class Model:
     models: List[Dict[str, Any]]
 
     def __init__(self, key: str, url: str, model_name: str, use_model: bool = True):
+        self.client = openai.OpenAI(api_key=key)
         self.api_key = key
         self.url = url
         self.model_name = model_name
@@ -75,6 +78,8 @@ class Model:
             response = openai.chat.completions.create(
                 model=self.model_name,
                 messages=[{"role": "user", "content": prompt}],
+                stream=False,
+                logprobs=False,
             )
             return str(response.choices[0].message.content)
         except openai.APIError as e:
