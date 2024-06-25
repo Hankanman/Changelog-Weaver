@@ -13,154 +13,150 @@ import aiohttp
 from pydantic import BaseModel, Field, field_validator
 
 from src.config import Config
-from src.utils import clean_string, format_date
+from src.utils import clean_string, format_date, send_request
 
 
 class WorkItems:
     """Manages the list of all work items and related operations."""
 
     def __init__(self):
-        self.all = []
+        self.all = {}
         self.by_type = []
         self.types = Types()
+        self.all_ids = set()
+        self.item_locks = {}
 
     def add_work_item(self, work_item: WorkItem):
-        """Add a work item to the list."""
-        if work_item not in self.all:
-            self.all.append(work_item)
+        if work_item.id not in self.all_ids:
+            self.all[work_item.id] = work_item
+            self.all_ids.add(work_item.id)
 
     def get_work_item(self, item_id: int) -> Optional[WorkItem]:
-        """Get a work item by its ID."""
-        return next((wi for wi in self.all if wi.id == item_id), None)
+        return self.all.get(item_id)
 
     async def get_items(
         self,
         config: Config,
-        session: aiohttp.ClientSession,
         summarise: bool = True,
     ) -> List[WorkItem]:
         """Fetch the list of work item IDs and return the ordered work items."""
         if self.types.all == {}:
-            log.info("Fetching Work Item Types")
-            await self.types.get(config, session)
+            await self.types.get(config)
         uri = f"{config.devops.url}/{config.devops.org}/{config.devops.project}/_apis/wit/wiql/{config.devops.query}"
         headers = {"Authorization": f"Basic {config.devops.pat}"}
 
-        try:
-            log.info("Fetching Work Items")
-            async with session.get(uri, headers=headers, timeout=10) as response:
-                result = await response.json()
-        except aiohttp.ClientError:
-            log.error("Failed to fetch work item data")
-            return []
+        result = await send_request(uri, headers=headers)
 
         work_item_ids = [item["id"] for item in result["workItems"]]
 
-        log.info("Fetching Work Item Details")
+        log.info("Fetched %s Work Item IDs", len(work_item_ids))
+        log.info("Fetching Work Item Details...")
 
         tasks = [
-            self.fetch_item(config, item_id, session, summarise)
-            for item_id in work_item_ids
+            self.fetch_item(config, item_id, summarise) for item_id in work_item_ids
         ]
-        await asyncio.gather(*tasks)
+        await asyncio.gather(*tasks, return_exceptions=False)
 
         log.info("Fetched %s Work Items", len(self.all))
 
-        self.all.sort(key=lambda item: item.id)
         self.by_type = self.group_by_type(self.build_work_item_tree())
-        return self.all
+        return list(self.all.values())
 
     async def fetch_item(
         self,
         config: Config,
         item_id: int,
-        session: aiohttp.ClientSession,
         get_summary: bool = True,
     ) -> WorkItem:
         """Fetch a work item by its ID asynchronously."""
-        item_types = self.types
-        # Check if the work item is already in the work_items
-        existing_item = self.get_work_item(item_id)
-        if existing_item:
-            return existing_item
+        if item_id in self.all_ids:
+            log.info(f"Work Item {item_id} already fetched")
+            return self.all[item_id]
 
-        fields = ",".join(config.devops.fields)
-        uri = f"{config.devops.url}/{config.devops.org}/{config.devops.project}/_apis/wit/workitems/{item_id}?fields={fields}"
-        headers = {"Authorization": f"Basic {config.devops.pat}"}
+        # Ensure there is a lock for the item_id
+        if item_id not in self.item_locks:
+            self.item_locks[item_id] = asyncio.Lock()
 
-        async with session.get(uri, headers=headers, timeout=10) as response:
-            item = await response.json()
+        async with self.item_locks[item_id]:
+            if item_id in self.all_ids:
+                log.info(f"Work Item {item_id} already fetched")
+                return self.all[item_id]
+            try:
+                fields = ",".join(config.devops.fields)
+                uri = f"{config.devops.url}/{config.devops.org}/{config.devops.project}/_apis/wit/workitems/{item_id}?fields={fields}"
+                headers = {"Authorization": f"Basic {config.devops.pat}"}
+                log.info("Fetching Work Item: %s", item_id)
+                item = await send_request(uri, headers=headers)
+            except aiohttp.ClientResponseError:
+                log.error("Error fetching Work Item: %s", item_id)
 
-        work_item = WorkItem(
-            **item["fields"],
-            id=item["id"],
-            type=str(item["fields"]["System.WorkItemType"]),
-            state=str(item["fields"]["System.State"]),
-            commentCount=int(item["fields"]["System.CommentCount"]),
-            parent=int(item["fields"].get("System.Parent") or 0),
-            title=clean_string(item["fields"]["System.Title"], 3),
-            storyPoints=int(
-                item["fields"].get("Microsoft.VSTS.Scheduling.StoryPoints") or 0
-            ),
-            priority=int(item["fields"].get("Microsoft.VSTS.Common.Priority") or 0),
-            description=(
-                clean_string(item["fields"]["System.Description"])
-                if item["fields"].get("System.Description")
-                else ""
-            ),
-            reproSteps=(
-                clean_string(item["fields"]["Microsoft.VSTS.TCM.ReproSteps"])
-                if item["fields"].get("Microsoft.VSTS.TCM.ReproSteps")
-                else ""
-            ),
-            acceptanceCriteria=(
-                clean_string(item["fields"]["Microsoft.VSTS.Common.AcceptanceCriteria"])
-                if item["fields"].get("Microsoft.VSTS.Common.AcceptanceCriteria")
-                else ""
-            ),
-            tags=str(item["fields"].get("System.Tags")).split("; ") or [],
-            url=re.sub(
-                r"_apis/wit/workitems",
-                "_workitems/edit",
-                item["url"],
-                flags=re.IGNORECASE,
-            ),
-        )
-        work_item_type = item_types.get_type(work_item.type)
-        if work_item_type:
-            work_item.type = work_item_type.name
-            work_item.icon = work_item_type.icon
-        if work_item.commentCount != 0:
-            work_item.comments = await self.fetch_comments(config, item_id, session)
-
-        self.add_work_item(work_item)
-
-        await self.get_parent(config, work_item, session, get_summary)
-
-        if get_summary:
-            content = (
-                f"ROLE: {config.prompts.item} "
-                f"TITLE: {work_item.title} "
-                f"DESCRIPTION: {work_item.description} "
-                f"REPRODUCTION_STEPS: {work_item.reproSteps} "
-                f"COMMENTS: {work_item.comments} "
-                f"ACCEPTANCE_CRITERIA: {work_item.acceptanceCriteria}"
+            work_item = WorkItem(
+                **item["fields"],
+                id=item["id"],
+                type=str(item["fields"]["System.WorkItemType"]),
+                state=str(item["fields"]["System.State"]),
+                commentCount=int(item["fields"]["System.CommentCount"]),
+                parent=int(item["fields"].get("System.Parent") or 0),
+                title=clean_string(item["fields"]["System.Title"], 3),
+                storyPoints=int(
+                    item["fields"].get("Microsoft.VSTS.Scheduling.StoryPoints") or 0
+                ),
+                priority=int(item["fields"].get("Microsoft.VSTS.Common.Priority") or 0),
+                description=(
+                    clean_string(item["fields"]["System.Description"])
+                    if item["fields"].get("System.Description")
+                    else ""
+                ),
+                reproSteps=(
+                    clean_string(item["fields"]["Microsoft.VSTS.TCM.ReproSteps"])
+                    if item["fields"].get("Microsoft.VSTS.TCM.ReproSteps")
+                    else ""
+                ),
+                acceptanceCriteria=(
+                    clean_string(
+                        item["fields"]["Microsoft.VSTS.Common.AcceptanceCriteria"]
+                    )
+                    if item["fields"].get("Microsoft.VSTS.Common.AcceptanceCriteria")
+                    else ""
+                ),
+                tags=str(item["fields"].get("System.Tags")).split("; ") or [],
+                url=re.sub(
+                    r"_apis/wit/workitems",
+                    "_workitems/edit",
+                    item["url"],
+                    flags=re.IGNORECASE,
+                ),
             )
-            work_item.summary = await config.model.summarise(content, session)
-        else:
-            work_item.summary = ""
+            work_item_type = self.types.get_type(work_item.type)
+            if work_item_type:
+                work_item.type = work_item_type.name
+                work_item.icon = work_item_type.icon
+            if work_item.commentCount != 0:
+                work_item.comments = await self.fetch_comments(config, item_id)
+            if work_item.parent not in self.all_ids and work_item.parent != 0:
+                await self.get_parent(config, work_item, get_summary)
 
+            if get_summary and not work_item.summary:
+                content = (
+                    f"ROLE: {config.prompts.item} "
+                    f"TITLE: {work_item.title} "
+                    f"DESCRIPTION: {work_item.description} "
+                    f"REPRODUCTION_STEPS: {work_item.reproSteps} "
+                    f"COMMENTS: {work_item.comments} "
+                    f"ACCEPTANCE_CRITERIA: {work_item.acceptanceCriteria}"
+                )
+                work_item.summary = await config.model.summarise(content)
+
+        self.all[work_item.id] = work_item
+        self.all_ids.add(work_item.id)
         return work_item
 
-    async def fetch_comments(
-        self, config: Config, item_id: int, session: aiohttp.ClientSession
-    ) -> List[str]:
+    async def fetch_comments(self, config: Config, item_id: int) -> List[str]:
         """Fetch comments for a work item asynchronously."""
         uri = f"{config.devops.url}/{config.devops.org}/{config.devops.project}/_apis/wit/workitems/{item_id}/comments"
         headers = {"Authorization": f"Basic {config.devops.pat}"}
-
-        async with session.get(uri, headers=headers, timeout=10) as response:
-            comments_data = await response.json()
+        log.info("Fetching Comments for Work Item: %s", item_id)
+        comments_data = await send_request(uri, headers=headers)
 
         comments = [Comment(**comment) for comment in comments_data.get("comments", [])]
         comments.sort(key=lambda comment: comment.modifiedDate, reverse=True)
@@ -173,22 +169,18 @@ class WorkItems:
         self,
         config: Config,
         item: WorkItem,
-        session: aiohttp.ClientSession,
         get_summary: bool = True,
     ):
         """Recursively fetch parent work items and add them to the list asynchronously."""
         parent_id = item.parent
         if parent_id and not self.get_work_item(parent_id):
-            try:
-                parent_item = await self.fetch_item(
-                    config, parent_id, session, get_summary
-                )
-                await self.get_parent(config, parent_item, session, get_summary)
-            except aiohttp.ClientError as e:
-                log.warning("Failed to fetch parent work item %s: %s", parent_id, e)
+            parent_item = await self.fetch_item(config, parent_id, get_summary)
+            log.info("Getting Parent Item: %s", parent_item.id)
+            await self.get_parent(config, parent_item, get_summary)
 
     def build_work_item_tree(self) -> List[WorkItem]:
         """Build a tree structure of work items."""
+        # TODO refactor for uae with dict of self.all
         work_item_map = {item.id: item for item in self.all}
         root_items = []
 
@@ -253,27 +245,17 @@ class Types:
     def __init__(self):
         self.all = {}
 
-    async def get(self, config: Config, session: aiohttp.ClientSession):
+    async def get(self, config: Config):
         """Create a new instance of Types."""
-        self.all = await self.fetch_types(config, session)
+        self.all = await self.fetch_types(config)
         return self
 
-    async def fetch_types(self, config: Config, session: aiohttp.ClientSession):
+    async def fetch_types(self, config: Config) -> dict[str, WorkItemType]:
         """Fetch work item types asynchronously."""
         uri = f"{config.devops.url}/{config.devops.org}/{config.devops.project}/_apis/wit/workitemtypes"
         headers = {"Authorization": f"Basic {config.devops.pat}"}
-
-        types_data = []
-        try:
-            async with session.get(uri, headers=headers, timeout=10) as response:
-                types_data = await response.json()
-        except aiohttp.ClientError as e:
-            log.error("Connection Error: %s", str(e))
-            return {}
-
-        if not types_data:
-            log.error("No data received for work item types")
-            return {}
+        log.info("Fetching Work Item Types")
+        types_data = await send_request(uri, headers=headers)
 
         types_values = types_data.get("value", [])
 
@@ -384,7 +366,7 @@ async def main(output_json: bool, output_folder: str):
 
     async with aiohttp.ClientSession() as session:
         wi = WorkItems()
-        await wi.get_items(config, session)
+        await wi.get_items(config)
 
     items = wi.all
     types = wi.types
