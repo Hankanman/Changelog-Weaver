@@ -6,6 +6,7 @@ import logging as log
 import json
 from typing import List
 import aiohttp
+import asyncio
 from .config import Config as c
 
 
@@ -85,9 +86,36 @@ async def finalise_notes(session: aiohttp.ClientSession) -> None:
         f"{c.prompts.summary}{c.software.brief}\n"
         f"The following is a summary of the work items completed in this release:\n"
         f"{c.software.notes}\nYour response should be as concise as possible",
-        session,
     )
 
     c.output.set_summary(final_summary)
     c.output.set_toc(create_contents(c.software.headers))
     await c.output.finalize(session)
+
+
+async def send_request(url: str, retries: int = 5, headers: dict = {}) -> dict:
+    """
+    Send an asynchronous HTTP request and return the JSON response.
+
+    Args:
+        url (str): The URL to send the request to.
+        retries (int): The number of retries in case of failure. Default is 3.
+        headers (dict): The headers to include in the request. Default is None.
+
+    Returns:
+        dict: The JSON response.
+
+    Raises:
+        aiohttp.ClientError: If there is an error during the request.
+        asyncio.TimeoutError: If the request times out.
+    """
+    for _ in range(retries):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers) as response:
+                    response.raise_for_status()
+                    return await response.json()
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            log.warning("Request failed: %s", str(e))
+            log.info("Retrying request...")
+    raise aiohttp.ClientError("Failed to send request after %s retries", _)
