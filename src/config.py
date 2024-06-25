@@ -319,6 +319,8 @@ class Config:
             format="%(levelname)s | %(message)s",  # Format for the log messages
             handlers=[log.StreamHandler()],  # Output logs to the console
         )
+        log.getLogger("openai").setLevel(log.ERROR)
+        log.getLogger("httpx").setLevel(log.ERROR)
         self.env_path = env_path
 
         # Ensure .env file is present or create it from defaults.env
