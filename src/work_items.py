@@ -27,11 +27,13 @@ class WorkItems:
         self.item_locks = {}
 
     def add_work_item(self, work_item: WorkItem):
+        """Add a work item to the list."""
         if work_item.id not in self.all_ids:
             self.all[work_item.id] = work_item
             self.all_ids.add(work_item.id)
 
     def get_work_item(self, item_id: int) -> Optional[WorkItem]:
+        """Get a work item by its ID."""
         return self.all.get(item_id)
 
     async def get_items(
@@ -59,7 +61,25 @@ class WorkItems:
 
         log.info("Fetched %s Work Items", len(self.all))
 
+        # Filter work items with parent of 0
+        no_parent = [item for item in self.all.values() if item.parent == 0]
+        if len(no_parent) > 0:
+            log.info("Found %s Work Items with no parent", len(no_parent))
+            log.info("Creating 'Other' parent for these Work Items")
+            self.add_work_item(
+                WorkItem(
+                    id=0,
+                    type="Other",
+                    state="Other",
+                    commentCount=0,
+                    parent=0,
+                    title="Other",
+                    icon="Other",
+                    children=no_parent,
+                )
+            )
         self.by_type = self.group_by_type(self.build_work_item_tree())
+
         return list(self.all.values())
 
     async def fetch_item(
@@ -69,9 +89,6 @@ class WorkItems:
         get_summary: bool = True,
     ) -> WorkItem:
         """Fetch a work item by its ID asynchronously."""
-        if item_id in self.all_ids:
-            log.info(f"Work Item {item_id} already fetched")
-            return self.all[item_id]
 
         # Ensure there is a lock for the item_id
         if item_id not in self.item_locks:
@@ -79,7 +96,7 @@ class WorkItems:
 
         async with self.item_locks[item_id]:
             if item_id in self.all_ids:
-                log.info(f"Work Item {item_id} already fetched")
+                log.debug("Work Item %s already fetched", item_id)
                 return self.all[item_id]
             try:
                 fields = ",".join(config.devops.fields)
@@ -137,6 +154,7 @@ class WorkItems:
                 await self.get_parent(config, work_item, get_summary)
 
             if get_summary and not work_item.summary:
+                log.info("Summarising Work Item: %s", work_item.id)
                 content = (
                     f"ROLE: {config.prompts.item} "
                     f"TITLE: {work_item.title} "
@@ -175,19 +193,16 @@ class WorkItems:
         parent_id = item.parent
         if parent_id and not self.get_work_item(parent_id):
             parent_item = await self.fetch_item(config, parent_id, get_summary)
-            log.info("Getting Parent Item: %s", parent_item.id)
             await self.get_parent(config, parent_item, get_summary)
 
     def build_work_item_tree(self) -> List[WorkItem]:
         """Build a tree structure of work items."""
-        # TODO refactor for uae with dict of self.all
-        work_item_map = {item.id: item for item in self.all}
         root_items = []
 
-        for item in self.all:
+        for item in self.all.values():
             parent_id = item.parent
             if parent_id:
-                parent_item = work_item_map.get(parent_id)
+                parent_item = self.all.get(parent_id)
                 if parent_item:
                     if parent_item.children is None:
                         parent_item.children = []
@@ -344,9 +359,9 @@ class WorkItem(BaseModel):
     storyPoints: Optional[int] = None
     priority: Optional[int] = None
     summary: Optional[str] = None
-    description: str
-    reproSteps: str
-    acceptanceCriteria: str
+    description: Optional[str] = None
+    reproSteps: Optional[str] = None
+    acceptanceCriteria: Optional[str] = None
     tags: List[str] = []
     url: str = ""
     comments: List[str] = []
@@ -387,7 +402,7 @@ async def main(output_json: bool, output_folder: str):
         items_json = json.dumps(
             [
                 item.model_dump(exclude={"children", "children_by_type"})
-                for item in wi.all
+                for item in wi.all.values()
             ],
             indent=4,
         )
