@@ -4,14 +4,21 @@ import re
 import datetime
 import logging as log
 import json
-from typing import List
+from typing import List, Optional
 import asyncio
 import aiohttp
-from .config import Config as c
+
+from src import Config
 
 
 def clean_name(text):
-    """Clean the display name."""
+    """Clean the display name.
+
+    Args:
+        text (str): The display name to clean.
+
+    Returns:
+        str: The cleaned display name"""
     if isinstance(text, str):
         parts = text.split(".")
         if len(parts) == 2:
@@ -59,7 +66,14 @@ def format_date(date_str: str) -> str:
 
 
 def clean_string(string: str, min_length: int = 30) -> str:
-    """Strip a string of HTML tags, URLs, JSON, and user references."""
+    """Strip a string of HTML tags, URLs, JSON, and user references.
+
+    Args:
+        string (str): The string to clean.
+        min_length (int): The minimum length of the string to return. Default is 30.
+
+    Returns:
+        str: The cleaned string."""
     string = re.sub(r"<[^>]*?>", "", string)  # Remove HTML tags
     string = re.sub(r"http[s]?://\S+", "", string)  # Remove URLs
     string = re.sub(r"@\w+(\.\w+)?", "", string)  # Remove user references
@@ -76,7 +90,7 @@ def clean_string(string: str, min_length: int = 30) -> str:
     return string if len(string) >= min_length else ""
 
 
-async def finalise_notes(session: aiohttp.ClientSession) -> None:
+async def finalise_notes(config: Config) -> None:
     """
     Finalizes the release notes by adding the summary and table of contents.
 
@@ -86,23 +100,22 @@ async def finalise_notes(session: aiohttp.ClientSession) -> None:
         file_md (Path): The path to the output Markdown file.
         file_html (Path): The path to the output HTML file.
         section_headers (Array[str]): A Array of section headers for the table of contents.
-
-    Returns:
-        None
     """
     log.info("Writing final summary and table of contents...")
-    final_summary = await c.model.summarise(
-        f"{c.prompts.summary}{c.software.brief}\n"
+    final_summary = await config.model.summarise(
+        f"{config.prompts.summary}{config.software.brief}\n"
         f"The following is a summary of the work items completed in this release:\n"
-        f"{c.software.notes}\nYour response should be as concise as possible",
+        f"{config.software.notes}\nYour response should be as concise as possible",
     )
 
-    c.output.set_summary(final_summary)
-    c.output.set_toc(create_contents(c.software.headers))
-    await c.output.finalize(session)
+    config.output.set_summary(final_summary)
+    config.output.set_toc(create_contents(config.software.headers))
+    await config.output.finalize(config.session)
 
 
-async def send_request(url: str, retries: int = 5, headers: dict = {}) -> dict:
+async def send_request(
+    url: str, retries: int = 5, headers: Optional[dict] = None
+) -> dict:
     """
     Send an asynchronous HTTP request and return the JSON response.
 
@@ -116,8 +129,9 @@ async def send_request(url: str, retries: int = 5, headers: dict = {}) -> dict:
 
     Raises:
         aiohttp.ClientError: If there is an error during the request.
-        asyncio.TimeoutError: If the request times out.
     """
+    if headers is None:
+        headers = {}
     for _ in range(retries):
         try:
             async with aiohttp.ClientSession() as session:
@@ -127,4 +141,4 @@ async def send_request(url: str, retries: int = 5, headers: dict = {}) -> dict:
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
             log.warning("Request failed: %s", str(e))
             log.info("Retrying request...")
-    raise aiohttp.ClientError("Failed to send request after %s retries", _)
+    raise aiohttp.ClientError(f"Failed to send request after {retries} retries")

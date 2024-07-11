@@ -69,8 +69,7 @@ class Model:
 
         if "openai" in self.url:
             return await self._openai_request(prompt)
-        else:
-            return await self._ollama_request(prompt)
+        return await self._ollama_request(prompt)
 
     async def _openai_request(self, prompt: str) -> str:
         openai.api_key = self.api_key

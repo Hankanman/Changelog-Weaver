@@ -8,14 +8,11 @@ import json
 import logging as log
 import re
 from typing import List, Optional
-from dataclasses import fields
 
 import aiohttp
 
-from src.config import Config
+from src import Config, Comment, WorkItem, WorkItemChildren, User, ItemTypes
 from src.utils import clean_string, send_request
-from src.item_types import ItemTypes
-from src._types import Comment, WorkItem, WorkItemChildren, User
 
 
 class WorkItems:
