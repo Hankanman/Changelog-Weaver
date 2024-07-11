@@ -8,12 +8,14 @@ import json
 import logging as log
 import re
 from typing import List, Optional
+from dataclasses import fields
 
 import aiohttp
-from pydantic import BaseModel, Field, field_validator
 
 from src.config import Config
-from src.utils import clean_string, format_date, send_request
+from src.utils import clean_string, send_request
+from src.item_types import ItemTypes
+from src._types import Comment, WorkItem, WorkItemChildren, User
 
 
 class WorkItems:
@@ -22,9 +24,10 @@ class WorkItems:
     def __init__(self):
         self.all = {}
         self.by_type = []
-        self.types = Types()
+        self.types = ItemTypes()
         self.all_ids = set()
         self.item_locks = {}
+        self.root_items = []
 
     def add_work_item(self, work_item: WorkItem):
         """Add a work item to the list."""
@@ -61,26 +64,52 @@ class WorkItems:
 
         log.info("Fetched %s Work Items", len(self.all))
 
-        # Filter work items with parent of 0
-        no_parent = [item for item in self.all.values() if item.parent == 0]
-        if len(no_parent) > 0:
-            log.info("Found %s Work Items with no parent", len(no_parent))
-            log.info("Creating 'Other' parent for these Work Items")
-            self.add_work_item(
-                WorkItem(
-                    id=0,
-                    type="Other",
-                    state="Other",
-                    commentCount=0,
-                    parent=0,
-                    title="Other",
-                    icon="Other",
-                    children=no_parent,
-                )
-            )
-        self.by_type = self.group_by_type(self.build_work_item_tree())
+        # Build the tree structure
+        self.work_item_tree()
+
+        work_item_zero = self.get_work_item(0)
+        if work_item_zero and hasattr(work_item_zero, "children"):
+            other_items = [
+                item for item in work_item_zero.children if len(item.children) > 0
+            ]
+            for item in other_items:
+                self.remove_child_from_workitem(0, item.id)
+
+        self.by_type = self.group_by_type(self.get_root_items())
 
         return list(self.all.values())
+
+    def remove_child_from_workitem(self, parent_id: int, child_id: int):
+        """Remove a child from a parent work item."""
+        # Retrieve the parent WorkItem
+        parent_item = self.all.get(parent_id)
+
+        # Check if the parent WorkItem exists and has children
+        if parent_item and hasattr(parent_item, "children"):
+            # Find the child to remove by ID
+            child_to_remove = next(
+                (child for child in parent_item.children if child.id == child_id), None
+            )
+
+            # If the child was found, remove it
+            if child_to_remove:
+                parent_item.children.remove(child_to_remove)
+                log.info(
+                    "Removed child with ID %s from parent with ID %s",
+                    child_id,
+                    parent_id,
+                )
+            else:
+                log.info(
+                    "Child with ID %s not found in parent with ID %s",
+                    child_id,
+                    parent_id,
+                )
+        else:
+            log.info(
+                "Parent with ID %s not found or has no children",
+                parent_id,
+            )
 
     async def fetch_item(
         self,
@@ -108,14 +137,13 @@ class WorkItems:
                 log.error("Error fetching Work Item: %s", item_id)
 
             work_item = WorkItem(
-                **item["fields"],
                 id=item["id"],
                 type=str(item["fields"]["System.WorkItemType"]),
                 state=str(item["fields"]["System.State"]),
-                commentCount=int(item["fields"]["System.CommentCount"]),
+                comment_count=int(item["fields"]["System.CommentCount"]),
                 parent=int(item["fields"].get("System.Parent") or 0),
                 title=clean_string(item["fields"]["System.Title"], 3),
-                storyPoints=int(
+                story_points=int(
                     item["fields"].get("Microsoft.VSTS.Scheduling.StoryPoints") or 0
                 ),
                 priority=int(item["fields"].get("Microsoft.VSTS.Common.Priority") or 0),
@@ -124,12 +152,12 @@ class WorkItems:
                     if item["fields"].get("System.Description")
                     else ""
                 ),
-                reproSteps=(
+                repro_steps=(
                     clean_string(item["fields"]["Microsoft.VSTS.TCM.ReproSteps"])
                     if item["fields"].get("Microsoft.VSTS.TCM.ReproSteps")
                     else ""
                 ),
-                acceptanceCriteria=(
+                acceptance_criteria=(
                     clean_string(
                         item["fields"]["Microsoft.VSTS.Common.AcceptanceCriteria"]
                     )
@@ -148,7 +176,7 @@ class WorkItems:
             if work_item_type:
                 work_item.type = work_item_type.name
                 work_item.icon = work_item_type.icon
-            if work_item.commentCount != 0:
+            if work_item.comment_count != 0:
                 work_item.comments = await self.fetch_comments(config, item_id)
             if work_item.parent not in self.all_ids and work_item.parent != 0:
                 await self.get_parent(config, work_item, get_summary)
@@ -159,9 +187,9 @@ class WorkItems:
                     f"ROLE: {config.prompts.item} "
                     f"TITLE: {work_item.title} "
                     f"DESCRIPTION: {work_item.description} "
-                    f"REPRODUCTION_STEPS: {work_item.reproSteps} "
+                    f"REPRODUCTION_STEPS: {work_item.repro_steps} "
                     f"COMMENTS: {work_item.comments} "
-                    f"ACCEPTANCE_CRITERIA: {work_item.acceptanceCriteria}"
+                    f"ACCEPTANCE_CRITERIA: {work_item.acceptance_criteria}"
                 )
                 work_item.summary = await config.model.summarise(content)
 
@@ -176,10 +204,22 @@ class WorkItems:
         log.info("Fetching Comments for Work Item: %s", item_id)
         comments_data = await send_request(uri, headers=headers)
 
-        comments = [Comment(**comment) for comment in comments_data.get("comments", [])]
-        comments.sort(key=lambda comment: comment.modifiedDate, reverse=True)
+        comments = [
+            Comment(
+                text=comment["text"],
+                modified_date=comment["modifiedDate"],
+                modified_by=User(
+                    display_name=comment["modifiedBy"]["displayName"],
+                    url=comment["modifiedBy"]["url"],
+                    user_id=comment["modifiedBy"]["id"],
+                    unique_name=comment["modifiedBy"]["uniqueName"],
+                ),
+            )
+            for comment in comments_data.get("comments", [])
+        ]
+        comments.sort(key=lambda comment: comment.modified_date, reverse=True)
         return [
-            f"{comment.modifiedDate} | {comment.modifiedBy.displayName} | {comment.text}"
+            f"{comment.modified_date} | {comment.modified_by.display_name} | {comment.text}"
             for comment in comments
         ]
 
@@ -195,9 +235,10 @@ class WorkItems:
             parent_item = await self.fetch_item(config, parent_id, get_summary)
             await self.get_parent(config, parent_item, get_summary)
 
-    def build_work_item_tree(self) -> List[WorkItem]:
+    def work_item_tree(self) -> None:
         """Build a tree structure of work items."""
-        root_items = []
+        self.root_items = []
+        other_items = []
 
         for item in self.all.values():
             parent_id = item.parent
@@ -214,9 +255,28 @@ class WorkItems:
                         item.id,
                     )
             else:
-                root_items.append(item)
+                if item.type == "Other":
+                    other_items.append(item)
+                else:
+                    self.root_items.append(item)
 
-        return root_items
+        # Create an "Other" work item at the top level if there are any items with no parent
+        if other_items:
+            other_parent = WorkItem(
+                id=0,
+                type="Other",
+                state="Other",
+                comment_count=0,
+                parent=0,
+                title="Other",
+                icon="Other",
+                children=other_items,
+            )
+            self.root_items.append(other_parent)
+
+    def get_root_items(self) -> List[WorkItem]:
+        """Get the root items of the work item tree."""
+        return self.root_items
 
     def group_by_type(self, items: List[WorkItem]) -> List[WorkItemChildren]:
         """Group work items by their type while preserving hierarchy."""
@@ -226,12 +286,27 @@ class WorkItems:
                 grouped_items[item.type] = []
             grouped_items[item.type].append(item)
 
-        grouped_children_list = [
-            WorkItemChildren(
-                type=key, icon=value[0].icon, items=self._group_children(value)
-            )
-            for key, value in grouped_items.items()
-        ]
+        grouped_children_list = []
+        for key, value in grouped_items.items():
+            if key == "Other":
+                # For "Other" type, we want to include its children directly
+                other_children = []
+                for other_item in value:
+                    other_children.extend(other_item.children)
+                if other_children:  # Only add "Other" if it has children
+                    grouped_children_list.append(
+                        WorkItemChildren(
+                            type="Other",
+                            icon=value[0].icon,
+                            items=self._group_children(other_children),
+                        )
+                    )
+            else:
+                grouped_children_list.append(
+                    WorkItemChildren(
+                        type=key, icon=value[0].icon, items=self._group_children(value)
+                    )
+                )
 
         return grouped_children_list
 
@@ -254,122 +329,6 @@ class WorkItems:
         return items
 
 
-class Types:
-    """Manages the list of all work item types."""
-
-    def __init__(self):
-        self.all = {}
-
-    async def get(self, config: Config):
-        """Create a new instance of Types."""
-        self.all = await self.fetch_types(config)
-        return self
-
-    async def fetch_types(self, config: Config) -> dict[str, WorkItemType]:
-        """Fetch work item types asynchronously."""
-        uri = f"{config.devops.url}/{config.devops.org}/{config.devops.project}/_apis/wit/workitemtypes"
-        headers = {"Authorization": f"Basic {config.devops.pat}"}
-        log.info("Fetching Work Item Types")
-        types_data = await send_request(uri, headers=headers)
-
-        types_values = types_data.get("value", [])
-
-        types = {
-            type["name"]: WorkItemType(
-                name=type["name"],
-                icon=type["icon"]["url"],
-                color=str.format("#{}", type["color"]),
-            )
-            for type in types_values
-        }
-        return types
-
-    def get_type(self, type_name: str) -> Optional[WorkItemType]:
-        """Get a work item type by name."""
-        return self.all.get(type_name)
-
-    def get_types(self) -> List[WorkItemType]:
-        """Get all work item types."""
-        return list(self.all.values())
-
-
-# pylint: disable=no-self-argument
-class User(BaseModel):
-    """Represents a user."""
-
-    displayName: str
-    url: str
-    id: str
-    uniqueName: str
-
-    @field_validator("displayName", mode="before")
-    def clean_display_name(cls, v):
-        """Clean the display name."""
-        if isinstance(v, str):
-            parts = v.split(".")
-            if len(parts) == 2:
-                return f"{parts[0].capitalize()} {parts[1].capitalize()}"
-        return v
-
-
-class WorkItemType(BaseModel):
-    """Represents a work item type."""
-
-    name: str
-    icon: str
-    color: str = "#000000"
-
-
-# pylint: disable=invalid-name
-class Comment(BaseModel):
-    """Represents a comment on a work item."""
-
-    text: str
-    modifiedDate: str = Field(..., alias="modifiedDate")
-    modifiedBy: User = Field(..., alias="modifiedBy")
-
-    @field_validator("modifiedDate", mode="before")
-    def format_date(cls, v):
-        """Format the modified date."""
-        return format_date(v)
-
-    @field_validator("text", mode="before")
-    def clean_text(cls, v):
-        """Clean the text."""
-        return clean_string(v)
-
-
-class WorkItemChildren(BaseModel):
-    """Represents a work item's children."""
-
-    type: str
-    icon: str = ""
-    items: List[WorkItem]
-
-
-class WorkItem(BaseModel):
-    """Represents a work item."""
-
-    id: int
-    type: str = ""
-    state: str
-    commentCount: int = 0
-    parent: int = 0
-    title: str
-    storyPoints: Optional[int] = None
-    priority: Optional[int] = None
-    summary: Optional[str] = None
-    description: Optional[str] = None
-    reproSteps: Optional[str] = None
-    acceptanceCriteria: Optional[str] = None
-    tags: List[str] = []
-    url: str = ""
-    comments: List[str] = []
-    icon: str = ""
-    children: List[WorkItem] = []
-    children_by_type: List[WorkItemChildren] = []
-
-
 async def main(output_json: bool, output_folder: str):
     """Main function to fetch work items and save them to a file."""
     config = Config()
@@ -388,9 +347,7 @@ async def main(output_json: bool, output_folder: str):
 
     if output_json:
         # Convert types to JSON
-        types_json = json.dumps(
-            [type.model_dump() for type in types.get_types()], indent=4
-        )
+        types_json = json.dumps([type for type in types.get_types()], indent=4)
 
         # Save types JSON to file
         os.makedirs(output_folder, exist_ok=True)
@@ -412,7 +369,7 @@ async def main(output_json: bool, output_folder: str):
             file.write(items_json)
 
         ordered_items_json = json.dumps(
-            [item.model_dump() for item in wi.by_type],
+            [item for item in wi.by_type],
             indent=4,
         )
         with open(

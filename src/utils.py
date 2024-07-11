@@ -5,9 +5,18 @@ import datetime
 import logging as log
 import json
 from typing import List
-import aiohttp
 import asyncio
+import aiohttp
 from .config import Config as c
+
+
+def clean_name(text):
+    """Clean the display name."""
+    if isinstance(text, str):
+        parts = text.split(".")
+        if len(parts) == 2:
+            return f"{parts[0].capitalize()} {parts[1].capitalize()}"
+    return text
 
 
 def create_contents(input_array: List[str]) -> str:

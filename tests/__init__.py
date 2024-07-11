@@ -1,6 +1,7 @@
 """Init for Tests"""
 
-from src.work_items import WorkItem, WorkItemType
+from src.work_items import WorkItem
+from src._types import WorkItemType
 
 TYPE_DATA = [
     {
@@ -44,10 +45,10 @@ WORK_ITEM = WorkItem(
     state="New",
     title="Test Bug",
     parent=0,
-    commentCount=0,
+    comment_count=0,
     description="",
-    reproSteps="",
-    acceptanceCriteria="",
+    repro_steps="",
+    acceptance_criteria="",
     tags=[],
     url="url",
     comments=[],

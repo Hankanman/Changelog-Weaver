@@ -8,7 +8,8 @@ from main import (
     write_parent_header,
     write_child_item,
 )
-from src.work_items import WorkItemChildren, WorkItem
+from src.work_items import WorkItem
+from src._types import WorkItemChildren
 from tests import WORK_ITEM
 
 
@@ -63,10 +64,10 @@ def test_write_child_item():
         state="New",
         title="Test Bug",
         parent=0,
-        commentCount=0,
+        comment_count=0,
         description="Test description",
-        reproSteps="",
-        acceptanceCriteria="",
+        repro_steps="",
+        acceptance_criteria="",
         tags=[],
         url="url",
         comments=[],
@@ -75,7 +76,7 @@ def test_write_child_item():
         children_by_type=[],
     )
     config = mock_config()
-    write_child_item(item, config)
+    write_child_item(item, config, 1)
     config.output.write.assert_called_once_with(
         "- [#1](url) **Test Bug** Test description 0\n"
     )
