@@ -1,306 +1,32 @@
-""" Config module for DevOps and OpenAI configuration."""
+""" Configuration class for the application. """
 
 import os
-import base64
 from pathlib import Path
-import logging as log
-from dataclasses import dataclass, field
-from typing import List, Optional
-import shutil
+from typing import Optional
 import aiohttp
 from dotenv import load_dotenv
+from .base_config import BaseConfig
+from .output import Output
+from .devops import DevOps
+from .prompts import Prompts
+from .software import Software
 from .model import Model
 
 
-@dataclass
-class Output:
-    """
-    Output class for writing release notes to a file.
+# pylint: disable=too-many-arguments
+class Config(BaseConfig):
+    """Configuration class for the application.
 
-    Parameters:
-        folder (str): The folder to store the release notes.
-        name (str): The name of the software.
-        version (str): The version of the software.
+    Args:
+        env_path (Path): The path to the .env file. Default is Path(".") / ".env".
+        output_folder (str): The folder to save the output file in. Default is "Releases".
+        software (Optional[Software]): The software configuration. Default is None and is self-initialized.
+        devops (Optional[DevOps]): The DevOps configuration. Default is None and is self-initialized.
+        model (Optional[Model]): The model configuration. Default is None and is self-initialized.
+        prompts (Optional[Prompt]): The prompt configuration. Default is None and is self-initialized.
+        output (Optional[Output]): The output configuration. Default is None and is self-initialized.
+        log_level (str): The logging level. Default is "INFO"."""
 
-    Attributes:
-        md (bool): Whether to output in markdown format.
-        html (bool): Whether to output in HTML format.
-        pdf (bool): Whether to output in PDF format.
-        path (Path): The path to the output file.
-
-    Functions:
-        write: Write content to the output file.
-        read: Read content from the output file.
-        setup: Set up the initial content of the release notes file.
-        set_summary: Set the summary of the release notes.
-        set_toc: Set the table of contents of the release notes.
-        finalize: Finalize the release notes by generating HTML and PDF outputs.
-    """
-
-    md: bool = True
-    html: bool = False
-    pdf: bool = False
-
-    def __init__(self, folder: str, name: str, version: str):
-        try:
-            folder_path = Path(".") / folder
-            folder_path.mkdir(parents=True, exist_ok=True)
-            self.path = (folder_path / f"{name}-v{version}.md").resolve()
-            if self.path.exists():
-                self.path.unlink()
-            self.path.touch()
-            folder_path.mkdir(parents=True, exist_ok=True)
-            self.setup(name, version)
-        except FileNotFoundError as e:
-            log.error("Error occurred while initializing Output: %s", e)
-        except PermissionError as e:
-            log.error("Error occurred while initializing Output: %s", e)
-
-    def write(self, content: str):
-        """Write content to the output file."""
-        with open(self.path, "a", encoding="utf-8") as file_output:
-            file_output.write(content)
-
-    def read(self) -> str:
-        """Read content from the output file."""
-        with open(self.path, "r", encoding="utf-8") as file:
-            contents = file.read()
-        return contents
-
-    def setup(self, name: str, version: str):
-        """Set up the initial content of the release notes file."""
-        try:
-
-            self.write(
-                f"# Release Notes for {name} version v{version}\n\n"
-                f"## Summary\n\n"
-                f"<NOTESSUMMARY>\n\n"
-                f"## Quick Links\n\n"
-                f"<TABLEOFCONTENTS>\n\n"
-            )
-        except FileNotFoundError as e:
-            log.error("Error occurred while setting up initial content: %s", e)
-        except PermissionError as e:
-            log.error("Error occurred while setting up initial content: %s", e)
-
-    def set_summary(self, summary: str):
-        """Set the summary of the release notes."""
-        try:
-            self.write(self.read().replace("<NOTESSUMMARY>", summary))
-        except FileNotFoundError as e:
-            log.error("Error occurred while setting summary: %s", e)
-        except PermissionError as e:
-            log.error("Error occurred while setting summary: %s", e)
-
-    def set_toc(self, toc: str):
-        """Set the table of contents of the release notes."""
-        try:
-            self.write(self.read().replace("<TABLEOFCONTENTS>", toc))
-        except FileNotFoundError as e:
-            log.error("Error occurred while setting table of contents: %s", e)
-        except PermissionError as e:
-            log.error("Error occurred while setting table of contents: %s", e)
-
-    async def finalize(self, session: aiohttp.ClientSession):
-        """
-        Finalize the release notes by generating HTML and PDF outputs.
-
-        Parameters:
-            session (aiohttp.ClientSession): The aiohttp session object.
-        """
-
-        contents = self.read()
-        if self.html:
-            try:
-                async with session.post(
-                    "https://api.github.com/markdown",
-                    json={"text": contents},
-                    headers={"Content-Type": "application/json"},
-                ) as html_response:
-                    html_response.raise_for_status()
-                    html_text = await html_response.text()
-                    file_html = self.path.with_suffix(".html")
-                    with open(file_html, "w", encoding="utf-8") as file:
-                        file.write(html_text)
-            except aiohttp.ClientError as e:
-                log.error("Error occurred while making HTTP request: %s", e)
-
-
-@dataclass
-class DevOps:
-    """
-    DevOps class for Azure DevOps configuration.
-
-    Parameters:
-        url (str): The base URL of the Azure DevOps organization.
-        api_version (str): The API version of the Azure DevOps REST API.
-        org (str): The name of the Azure DevOps organization.
-        project (str): The name of the Azure DevOps project.
-        query (str): The query to retrieve work items from Azure DevOps.
-        pat (str): The personal access token for authenticating with Azure DevOps.
-
-    Attributes:
-        url (str): The base URL of the Azure DevOps organization.
-        api_version (str): The API version of the Azure DevOps REST API.
-        org (str): The name of the Azure DevOps organization.
-        project (str): The name of the Azure DevOps project.
-        query (str): The query to retrieve work items from Azure DevOps.
-        pat (str): The personal access token for authenticating with Azure DevOps.
-        fields (List[str]): The fields to retrieve from the work items.
-    """
-
-    # pylint: disable=too-many-arguments
-    def __init__(
-        self, url: str, api_version: str, org: str, project: str, query: str, pat: str
-    ):
-        self.url = url
-        self.api_version = api_version
-        self.org = org
-        self.project = project
-        self.query = query
-        self.pat = base64.b64encode(f":{pat}".encode()).decode()
-        self.fields = [
-            "System.Title",
-            "System.Id",
-            "System.State",
-            "System.Tags",
-            "System.Description",
-            "System.Parent",
-            "System.CommentCount",
-            "System.WorkItemType",
-            "Microsoft.VSTS.Common.Priority",
-            "Microsoft.VSTS.TCM.ReproSteps",
-            "Microsoft.VSTS.Common.AcceptanceCriteria",
-            "Microsoft.VSTS.Scheduling.StoryPoints",
-        ]
-
-
-class Prompt:
-    """
-    Prompt class for generating prompts for the GPT model.
-
-    Parameters:
-        name (str): The name of the software.
-        brief (str): The brief description of the software.
-        release_notes (str): The release notes for the software.
-
-    Attributes:
-        summary (str): The summary prompt.
-        item (str): The work item prompt.
-    """
-
-    def __init__(self, name: str, brief: str, release_notes: str):
-        self._summary = f"""You are a developer working on a software project called {name}. You \
-            have been asked to review the following and write a summary of the \
-            work completed for this release. Please keep your summary to one \
-            paragraph, do not write any bullet points or list, do not group \
-            your response in any way, just a natural language explanation of \
-            what was accomplished. The following is a high-level summary of the \
-            purpose of the software for your context: {brief}\nThe following is \
-            a high-level summary of the release notes for your context: \
-            {release_notes}\n"""
-        self._item = """You are a developer writing a summary of the work completed for the given \
-            devops work item. Ignore timestamps and links. Return only the description \
-            text with no titles, headers, or formatting, if there is nothing to \
-            describe, return 'Addressed', always assume that the work item was \
-            completed. Do not list filenames or links. Please provide a single sentence \
-            of the work completed for the following devops work item details:\n"""
-
-    @property
-    def summary(self):
-        """Get the summary prompt."""
-        return self._summary
-
-    @summary.setter
-    def summary(self, value: str):
-        self._summary = value
-
-    @property
-    def item(self):
-        """Get the item prompt."""
-        return self._item
-
-    @item.setter
-    def item(self, value: str):
-        self._item = value
-
-
-@dataclass
-class Software:
-    """
-    Software class for software configuration.
-
-    Attributes:
-        name (str): The name of the software.
-        version (str): The version of the software.
-        brief (str): The brief description of the software.
-        headers (List[str]): The headers for the software release notes.
-        notes (str): The software release notes.
-
-    Functions:
-        add_header: Add a header to the software release notes.
-    """
-
-    name: str
-    version: str
-    brief: str
-    headers: List[str] = field(default_factory=list)
-
-    def add_header(self, value: str):
-        """
-        Add a header to the software release notes.
-
-        Parameters:
-            value (str): The header to add to the software release notes.
-
-        Returns:
-            List[str]: The updated list of headers for the software release notes.
-        """
-        self.headers.append(value)
-        return self.headers
-
-    @property
-    def notes(self):
-        """Get the software release notes."""
-        return self.notes
-
-    @notes.setter
-    def notes(self, value: str):
-        self.notes = self.notes + value
-        return self.notes
-
-
-@dataclass
-class Config:
-    """
-    Configuration class for DevOps and OpenAI configuration.
-
-    Attributes:
-        software (Software): The software configuration.
-        devops (DevOps): The DevOps configuration.
-        model (Model): The GPT model configuration.
-        prompts (Prompt): The prompt configuration.
-        output (Output): The output configuration.
-        session (aiohttp.ClientSession): The aiohttp session object.
-    """
-
-    software: Software
-    devops: DevOps
-    model: Model
-    prompts: Prompt
-    output: Output
-    session: Optional[aiohttp.ClientSession] = None
-
-    async def create_session(self):
-        """Create an aiohttp session."""
-        self.session = aiohttp.ClientSession()
-
-    async def close_session(self):
-        """Close the aiohttp session."""
-        if self.session:
-            await self.session.close()
-
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         env_path: Path = Path(".") / ".env",
@@ -308,38 +34,17 @@ class Config:
         software: Optional[Software] = None,
         devops: Optional[DevOps] = None,
         model: Optional[Model] = None,
-        prompts: Optional[Prompt] = None,
+        prompts: Optional[Prompts] = None,
         output: Optional[Output] = None,
         log_level: str = "INFO",
     ):
-
-        self.log_level = str(os.getenv("LOG_LEVEL", log_level))
-        log.basicConfig(
-            level=self.log_level,  # Set the logging level to INFO
-            format="%(levelname)s | %(message)s",  # Format for the log messages
-            handlers=[log.StreamHandler()],  # Output logs to the console
-        )
-        log.getLogger("openai").setLevel(log.ERROR)
-        log.getLogger("httpx").setLevel(log.ERROR)
-        self.env_path = env_path
-
-        # Ensure .env file is present or create it from defaults.env
-        if not self.ensure_env_file():
-            self.valid_env = False
-            return  # Stop initialization if .env was just created
-        self.valid_env = True
+        super().__init__(env_path, log_level)
+        if not self.valid_env:
+            return
 
         load_dotenv(env_path)
 
-        log.basicConfig(
-            level=self.log_level,  # Set the logging level
-            format="%(levelname)s | %(message)s",  # Format for the log messages
-            handlers=[log.StreamHandler()],  # Output logs to the console
-        )
-
-        # Set default output folder if not provided
-        if output_folder is None:
-            output_folder = str(os.getenv("OUTPUT_FOLDER", "Releases"))
+        output_folder = str(os.getenv("OUTPUT_FOLDER", output_folder))
 
         self.software = software or Software(
             name=str(os.getenv("SOLUTION_NAME")),
@@ -362,7 +67,7 @@ class Config:
             model_name=str(os.getenv("MODEL")),
         )
 
-        self.prompts = prompts or Prompt(
+        self.prompts = prompts or Prompts(
             self.software.name,
             self.software.brief,
             self.software.brief,
@@ -374,57 +79,13 @@ class Config:
             version=self.software.version,
         )
 
-        self.session = None
+        self.session: aiohttp.ClientSession
 
-    def ensure_env_file(self) -> bool:
-        """Ensure that .env file exists, if not, create it from defaults.env and validate."""
-        if not self.env_path.exists():
-            default_env_path = Path(__file__).resolve().parent.parent / "defaults.env"
-            if default_env_path.exists():
-                shutil.copy(default_env_path, self.env_path)
-                log.info(
-                    ".env file created from defaults.env. Please complete the .env file located at: %s",
-                    self.env_path.resolve(),
-                )
-                return False  # Indicate that the program should stop
-            else:
-                raise FileNotFoundError("Default environment file not found.")
-        else:
-            log.info(".env file found. Validating values...")
-            if not self.validate_env_file():
-                log.error(
-                    "Invalid .env file values. Please complete the .env file located at: %s",
-                    self.env_path.resolve(),
-                )
-                return False  # Indicate that the program should stop
-            log.info(".env file is valid.")
-            return True  # Indicate that the program can continue
+    async def create_session(self):
+        """Create an aiohttp session for the configuration"""
+        self.session = aiohttp.ClientSession()
 
-    def validate_env_file(self) -> bool:
-        """Validate the values in the .env file."""
-        required_keys = [
-            "ORG_NAME",
-            "PROJECT_NAME",
-            "SOLUTION_NAME",
-            "RELEASE_VERSION",
-            "RELEASE_QUERY",
-            "PAT",
-            "GPT_API_KEY",
-            "SOFTWARE_SUMMARY",
-            "OUTPUT_FOLDER",
-            "MODEL",
-            "MODEL_BASE_URL",
-            "DEVOPS_BASE_URL",
-            "DEVOPS_API_VERSION",
-            "LOG_LEVEL",
-        ]
-
-        missing_vars = [key for key in required_keys if not os.getenv(key)]
-
-        if len(missing_vars) > 0:
-            log.error(
-                "Missing required environment variable(s): %s",
-                ", ".join(missing_vars),
-            )
-            return False
-        return True
+    async def close_session(self):
+        """Close the aiohttp session for the configuration"""
+        if self.session:
+            await self.session.close()
