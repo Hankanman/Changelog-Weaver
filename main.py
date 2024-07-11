@@ -4,9 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging as log
 from typing import List
-import aiohttp
-from src.config import Config
-from src.work_items import WorkItems, WorkItem, WorkItemChildren
+from src import Config, WorkItems, WorkItem, WorkItemChildren
 
 
 def iterate_and_print(
@@ -15,23 +13,35 @@ def iterate_and_print(
     level: int = 1,
     icon_size: int = 20,
 ):
-    """Recursively iterate through work items by type and print each level."""
+    """Iterate through the work items by type and print them to the markdown file.
+
+    Args:
+        items_by_type (List[WorkItemChildren]): The list of work items grouped by type.
+        config (Config): The configuration object.
+        level (int, optional): The current level of the work item. Default is 1.
+        icon_size (int, optional): The size of the work item icon. Default is 20."""
     indent = "#" * level
     icon_size = icon_size - level if len(indent) > 1 else icon_size
     for item_group in items_by_type:
         write_type_header(item_group, config, level, icon_size)
         for wi in item_group.items:
             if len(wi.children) > 0:
-                write_parent_header(wi, config, level, icon_size)
+                write_parent_header(wi, config, level + 1, icon_size)
             else:
-                write_child_item(wi, config, level)
+                write_child_item(wi, config, level + 1)
             if wi.children_by_type:
-                iterate_and_print(wi.children_by_type, config, level + 1)
+                iterate_and_print(wi.children_by_type, config, level + 2)
 
 
 def write_type_header(wi: WorkItemChildren, config: Config, level: int, icon_size: int):
-    """Generate and write the header for the parent item."""
-    indent = "#" * level
+    """Generate and write the header for the parent item.
+
+    Args:
+        wi (WorkItemChildren): The work item children object.
+        config (Config): The configuration object.
+        level (int): The current level of the work item.
+        icon_size (int): The size of the work item icon."""
+    indent = "#" * (level + 1)
     header = (
         f"{indent} " f"<img src='{wi.icon}' height='{icon_size}'> " f"{wi.type}s\n\n"
     )
@@ -40,9 +50,15 @@ def write_type_header(wi: WorkItemChildren, config: Config, level: int, icon_siz
 
 
 def write_parent_header(wi: WorkItem, config: Config, level: int, icon_size: int):
-    """Generate and write the header for the parent item."""
+    """Generate and write the header for the parent item.
+
+    Args:
+        wi (WorkItem): The work item object.
+        config (Config): The configuration object.
+        level (int): The current level of the work item.
+        icon_size (int): The size of the work item icon."""
     parent_head_link = f"[#{wi.id}]({wi.url}) " if wi.id != 0 else ""
-    indent = "#" * level
+    indent = "#" * (level + 1)
     header = (
         f"{indent} "
         f"<img src='{wi.icon}' height='{icon_size}'>"
@@ -53,7 +69,12 @@ def write_parent_header(wi: WorkItem, config: Config, level: int, icon_size: int
 
 
 def write_child_item(wi: WorkItem, config: Config, level: int):
-    """Write the child item to the markdown file."""
+    """Write the child item to the markdown file.
+
+    Args:
+        wi (WorkItem): The work item object.
+        config (Config): The configuration object.
+        level (int): The current level of the work item."""
     config.output.write(f"- [#{wi.id}]({wi.url}) **{wi.title}** {wi.summary}\n")
     log.info("%s%s | %s", " " * (level + 1), wi.id, wi.title)
 
@@ -65,9 +86,11 @@ async def main():
         input("Press Enter to exit...")
         return
 
-    async with aiohttp.ClientSession() as session:
+    await config.create_session()
+
+    async with config.session:
         wi = WorkItems()
-        await wi.get_items(config)
+        await wi.get_items(config, False)
         items_by_type = wi.by_type
 
         iterate_and_print(items_by_type, config)
