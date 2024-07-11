@@ -11,7 +11,9 @@ from typing import List, Optional
 
 import aiohttp
 
-from src import Config, Comment, WorkItem, WorkItemChildren, User, ItemTypes
+from src import Config
+from src._types import Comment, WorkItem, WorkItemChildren, User
+from src.item_types import ItemTypes
 from src.utils import clean_string, send_request
 
 
