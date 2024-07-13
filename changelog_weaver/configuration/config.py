@@ -46,9 +46,10 @@ class Config(BaseConfig):
                 access_token=env.get(ENVVARS.ACCESS_TOKEN.value, ""),
             )
         except ValueError as e:
-            log.error(f"Error parsing project: {str(e)}")
+            log.error("Error parsing project: %s", str(e))
             log.error(
-                f"PROJECT_URL from environment: {env.get(ENVVARS.PROJECT_URL.value, '')}"
+                "PROJECT_URL from environment: %s",
+                env.get(ENVVARS.PROJECT_URL.value, ""),
             )
             raise
 
