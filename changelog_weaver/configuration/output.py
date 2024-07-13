@@ -2,7 +2,8 @@
 
 from pathlib import Path
 import logging as log
-import aiohttp
+
+import markdown
 
 
 class Output:
@@ -89,24 +90,15 @@ class Output:
         except (FileNotFoundError, PermissionError) as e:
             log.error("Error occurred while setting table of contents: %s", e)
 
-    async def finalize(self, session: aiohttp.ClientSession):
+    async def finalize(self):
         """Finalize the output file.
 
         Args:
             session (aiohttp.ClientSession): The aiohttp session to use for making HTTP requests.
         """
         if self.html:
-            try:
-                contents = self.read()
-                async with session.post(
-                    "https://api.github.com/markdown",
-                    json={"text": contents},
-                    headers={"Content-Type": "application/json"},
-                ) as html_response:
-                    html_response.raise_for_status()
-                    html_text = await html_response.text()
-                    file_html = self.path.with_suffix(".html")
-                    with open(file_html, "w", encoding="utf-8") as file:
-                        file.write(html_text)
-            except aiohttp.ClientError as e:
-                log.error("Error occurred while making HTTP request: %s", e)
+            contents = self.read()
+            html_text = markdown.markdown(contents)
+            file_html = self.path.with_suffix(".html")
+            with open(file_html, "w", encoding="utf-8") as file:
+                file.write(html_text)

@@ -7,7 +7,6 @@ import re
 
 # Third party imports
 import openai
-import ollama
 
 
 @dataclass
@@ -67,9 +66,7 @@ class Model:
             )
             return ""
 
-        if "openai" in self.url:
-            return await self._openai_request(prompt)
-        return await self._ollama_request(prompt)
+        return await self._openai_request(prompt)
 
     async def _openai_request(self, prompt: str) -> str:
         openai.api_key = self.api_key
@@ -83,19 +80,6 @@ class Model:
             return str(response.choices[0].message.content)
         except openai.APIError as e:
             log.error("OpenAI Error: %s", str(e))
-            return f"Error: {str(e)}"
-
-    async def _ollama_request(self, prompt: str) -> str:
-        try:
-            client = ollama.Client(api_key=self.api_key)
-            response = client.generate(
-                model=self.model_name,
-                prompt=prompt,
-                stream=False,
-            )
-            return str(response)
-        except ollama.ResponseError as e:
-            log.error("Ollama Error: %s", str(e))
             return f"Error: {str(e)}"
 
     def count_tokens(self, text: str) -> int:

@@ -1,6 +1,8 @@
 """ Test for config module"""
 
-from src.config import Config, Output, DevOps, Prompt, Software
+from changelog_weaver.configuration import Config, Output
+
+from src.config import DevOps, Prompt, Software
 from src.model import Model
 
 

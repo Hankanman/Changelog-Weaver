@@ -38,7 +38,7 @@
       "type": "debugpy",
       "request": "launch",
       // "program": "${workspaceFolder}/main.py",
-      "module": "main",
+      "module": "changelog_weaver",
       "console": "integratedTerminal"
     }
   ]

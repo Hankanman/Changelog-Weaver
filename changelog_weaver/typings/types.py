@@ -2,17 +2,64 @@
 
 from typing import List, Optional
 from dataclasses import dataclass, field
+from enum import Enum
 
-from src.utils import clean_string, format_date, clean_name
+from ..utilities import clean_string, format_date, clean_name
+
+
+class Platform(Enum):
+    """Enum for supported platforms."""
+
+    AZURE_DEVOPS = "azure_devops"
+    GITHUB = "github"
 
 
 @dataclass
-class WorkItemChildren:
-    """Represents a work item's children."""
+class Notes:
+    """Represents the notes for a software package."""
 
-    type: str
-    items: List["WorkItem"]
-    icon: str = ""
+    notes: str = ""
+    headers: List[str] = field(default_factory=list)
+
+    def add_note(self, value: str):
+        """Add notes to the software package.
+
+        Args:
+            value (str): The notes to add."""
+        self.notes += value
+        return self.notes
+
+    def add_header(self, value: str):
+        """Add a header to the software package.
+
+        Args:
+            value (str): The header to add."""
+        self.headers.append(value)
+        return self.headers
+
+
+@dataclass
+class PlatformInfo:
+    """Represents the platform information"""
+
+    platform: Platform
+    organization: str
+    base_url: str
+    query: str
+    access_token: str
+
+
+@dataclass
+class Project:
+    """Represents a platform."""
+
+    name: str
+    ref: str
+    url: str
+    version: str
+    brief: str
+    platform: PlatformInfo
+    changelog: Notes
 
 
 @dataclass
@@ -38,8 +85,26 @@ class WorkItem:
     url: str = ""
     comments: List[str] = field(default_factory=list)
     icon: str = ""
-    children: List["WorkItem"] = field(default_factory=list)
-    children_by_type: List[WorkItemChildren] = field(default_factory=list)
+
+    children: List["HierarchicalWorkItem"] = field(default_factory=list)
+    children_by_type: List["WorkItemGroup"] = field(default_factory=list)
+
+
+@dataclass
+class WorkItemGroup:
+    """Represents a group of work items."""
+
+    type: str
+    icon: str
+    items: List[WorkItem]
+
+
+@dataclass
+class HierarchicalWorkItem(WorkItem):
+    """Represents a hierarchical work item."""
+
+    children: List["HierarchicalWorkItem"] = field(default_factory=list)
+    children_by_type: List[WorkItemGroup] = field(default_factory=list)
 
 
 @dataclass

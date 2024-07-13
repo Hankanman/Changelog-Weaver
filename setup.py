@@ -1,14 +1,18 @@
 """ Setup file for the Auto-Release-Notes package """
 
-from setuptools import setup, find_packages
+from openai import VERSION
+from setuptools import setup, find_namespace_packages
+
+NAME = "changelog-weaver"
+VERSION = "1.0.0"
 
 setup(
-    name="AutoReleaseNotes",
+    name=NAME,
     description="A package to generate automatic release notes using llms",
     url="https://github.com/Hankanman/Auto-Release-Notes",
     author="Hankanman",
-    version="1.0.0",
-    packages=find_packages(),
+    version=VERSION,
+    packages=find_namespace_packages(),
     include_package_data=True,
     package_data={
         "": ["defaults.env"],
@@ -20,10 +24,5 @@ setup(
         "aioresponses",
         "pydantic",
         "python-dotenv",
-    ],
-    entry_points={
-        "console_scripts": [
-            "autorelease=main:main",
-        ],
-    },
+    ]
 )

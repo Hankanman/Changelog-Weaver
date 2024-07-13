@@ -4,11 +4,7 @@ import re
 import datetime
 import logging as log
 import json
-from typing import List, Optional
-import asyncio
-import aiohttp
-
-from src import Config
+from typing import List
 
 
 def clean_name(text):
@@ -88,57 +84,3 @@ def clean_string(string: str, min_length: int = 30) -> str:
     string = re.sub(r"&nbsp;", " ", string)
     string = re.sub(r"\s+", " ", string)
     return string if len(string) >= min_length else ""
-
-
-async def finalise_notes(config: Config) -> None:
-    """
-    Finalizes the release notes by adding the summary and table of contents.
-
-    Args:
-        html (bool): A boolean flag indicating whether to generate HTML output.
-        summary_notes (str): The summary of the work items completed in this release.
-        file_md (Path): The path to the output Markdown file.
-        file_html (Path): The path to the output HTML file.
-        section_headers (Array[str]): A Array of section headers for the table of contents.
-    """
-    log.info("Writing final summary and table of contents...")
-    final_summary = await config.model.summarise(
-        f"{config.prompts.summary}{config.software.brief}\n"
-        f"The following is a summary of the work items completed in this release:\n"
-        f"{config.software.notes}\nYour response should be as concise as possible",
-    )
-
-    config.output.set_summary(final_summary)
-    config.output.set_toc(create_contents(config.software.headers))
-    await config.output.finalize(config.session)
-
-
-async def send_request(
-    url: str, retries: int = 5, headers: Optional[dict] = None
-) -> dict:
-    """
-    Send an asynchronous HTTP request and return the JSON response.
-
-    Args:
-        url (str): The URL to send the request to.
-        retries (int): The number of retries in case of failure. Default is 3.
-        headers (dict): The headers to include in the request. Default is None.
-
-    Returns:
-        dict: The JSON response.
-
-    Raises:
-        aiohttp.ClientError: If there is an error during the request.
-    """
-    if headers is None:
-        headers = {}
-    for _ in range(retries):
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, headers=headers) as response:
-                    response.raise_for_status()
-                    return await response.json()
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            log.warning("Request failed: %s", str(e))
-            log.info("Retrying request...")
-    raise aiohttp.ClientError(f"Failed to send request after {retries} retries")
