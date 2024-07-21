@@ -38,25 +38,25 @@ class Config(BaseConfig):
 
         try:
             self.project = project or parse_project(
-                name=env.get(ENVVARS.SOLUTION_NAME.value, ""),
-                version=env.get(ENVVARS.RELEASE_VERSION.value, ""),
-                brief=env.get(ENVVARS.SOFTWARE_SUMMARY.value, ""),
-                url=env.get(ENVVARS.PROJECT_URL.value, ""),
-                query=env.get(ENVVARS.QUERY.value, ""),
-                access_token=env.get(ENVVARS.ACCESS_TOKEN.value, ""),
+                name=env.get(ENVVARS.SOLUTION_NAME, ""),
+                version=env.get(ENVVARS.RELEASE_VERSION, ""),
+                brief=env.get(ENVVARS.SOFTWARE_SUMMARY, ""),
+                url=env.get(ENVVARS.PROJECT_URL, ""),
+                query=env.get(ENVVARS.RELEASE_QUERY, ""),
+                access_token=env.get(ENVVARS.ACCESS_TOKEN, ""),
             )
         except ValueError as e:
             log.error("Error parsing project: %s", str(e))
             log.error(
                 "PROJECT_URL from environment: %s",
-                env.get(ENVVARS.PROJECT_URL.value, ""),
+                env.get(ENVVARS.PROJECT_URL, ""),
             )
             raise
 
         self.model = model or Model(
-            key=env.get(ENVVARS.GPT_API_KEY.value, ""),
-            url=env.get(ENVVARS.MODEL_BASE_URL.value, ""),
-            model_name=env.get(ENVVARS.MODEL.value, ""),
+            key=env.get(ENVVARS.GPT_API_KEY, ""),
+            url=env.get(ENVVARS.MODEL_BASE_URL, ""),
+            model_name=env.get(ENVVARS.MODEL, ""),
         )
 
         self.prompts = prompts or Prompts(
@@ -66,7 +66,7 @@ class Config(BaseConfig):
         )
 
         self.output = output or Output(
-            folder=env.get(ENVVARS.OUTPUT_FOLDER.value, "Releases"),
+            folder=env.get(ENVVARS.OUTPUT_FOLDER, "Releases"),
             name=self.project.name,
             version=self.project.version,
         )
