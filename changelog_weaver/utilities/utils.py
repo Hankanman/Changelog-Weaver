@@ -40,25 +40,31 @@ def create_contents(input_array: List[str]) -> str:
     return "".join(markdown_links)
 
 
-def format_date(date_str: str) -> str:
+def format_date(date) -> str:
     """Format the modified date string.
 
     Args:
-        date_str (str): Input date string in the format "%Y-%m-%dT%H:%M:%S.%fZ"
+        date (Union[str, datetime.datetime]): Input date string in the format "%Y-%m-%dT%H:%M:%S.%fZ" or datetime.datetime object.
 
     Returns:
         str: Human-readable date string in the format "%d-%m-%Y %H:%M"
     """
-    try:
-        date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S.%fZ")
-        return date_obj.strftime("%d-%m-%Y %H:%M")
-    except ValueError:
+    if isinstance(date, str):
         try:
-            date_obj = datetime.datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
+            date_obj = datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%S.%fZ")
             return date_obj.strftime("%d-%m-%Y %H:%M")
         except ValueError:
-            log.warning("Invalid modified date format: %s", date_str)
-            return date_str
+            try:
+                date_obj = datetime.datetime.strptime(date, "%Y-%m-%dT%H:%M:%SZ")
+                return date_obj.strftime("%d-%m-%Y %H:%M")
+            except ValueError:
+                log.warning("Invalid modified date format: %s", date)
+                return date
+    elif isinstance(date, datetime.datetime):
+        return date.strftime("%d-%m-%Y %H:%M")
+    else:
+        log.warning("Invalid date format: %s", date)
+        return str(date)
 
 
 def clean_string(string: str, min_length: int = 30) -> str:
@@ -70,6 +76,9 @@ def clean_string(string: str, min_length: int = 30) -> str:
 
     Returns:
         str: The cleaned string."""
+    if not string:
+        return ""
+
     string = re.sub(r"<[^>]*?>", "", string)  # Remove HTML tags
     string = re.sub(r"http[s]?://\S+", "", string)  # Remove URLs
     string = re.sub(r"@\w+(\.\w+)?", "", string)  # Remove user references

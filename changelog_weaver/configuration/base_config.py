@@ -16,7 +16,7 @@ class ENVVARS(Enum):
     RELEASE_VERSION = "RELEASE_VERSION"
     SOFTWARE_SUMMARY = "SOFTWARE_SUMMARY"
     PROJECT_URL = "PROJECT_URL"
-    RELEASE_QUERY = "RELEASE_QUERY"
+    QUERY = "QUERY"
     ACCESS_TOKEN = "ACCESS_TOKEN"
     GPT_API_KEY = "GPT_API_KEY"
     MODEL_BASE_URL = "MODEL_BASE_URL"
@@ -56,18 +56,16 @@ class BaseConfig:
                     self.env.env_path.resolve(),
                 )
                 return False
-            else:
-                raise FileNotFoundError("Default environment file not found.")
-        else:
-            log.info(".env file found. Validating values...")
-            if not self.validate_env_file():
-                log.error(
-                    "Invalid .env file values. Please complete the .env file located at: %s",
-                    self.env.env_path.resolve(),
-                )
-                return False
-            log.info(".env file is valid.")
-            return True
+            raise FileNotFoundError("Default environment file not found.")
+        log.info(".env file found. Validating values...")
+        if not self.validate_env_file():
+            log.error(
+                "Invalid .env file values. Please complete the .env file located at: %s",
+                self.env.env_path.resolve(),
+            )
+            return False
+        log.info(".env file is valid.")
+        return True
 
     def validate_env_file(self) -> bool:
         """Ensure all required environment variables are set."""

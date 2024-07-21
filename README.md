@@ -1,11 +1,25 @@
-# Azure DevOps Release Notes Generator
+# Changelog Weaver (Auto-Release-Notes)
 
 [![Pylint](https://github.com/hankanman/Auto-Release-Notes/actions/workflows/pylint.yml/badge.svg)](https://github.com/hankanman/Auto-Release-Notes/actions/workflows/pylint.yml)
 [![Python package](https://github.com/Hankanman/Auto-Release-Notes/actions/workflows/python-package.yml/badge.svg)](https://github.com/Hankanman/Auto-Release-Notes/actions/workflows/python-package.yml)
 
-This script generates release notes for a given release version of a solution in Azure DevOps. It retrieves work items from Azure DevOps, summarizes them using GPT, and outputs the release notes in Markdown and HTML formats.
+Changelog Weaver (Auto-Release-Notes) is a powerful tool designed to automatically generate comprehensive release notes for projects in Azure DevOps. It leverages the power of GPT (Generative Pre-trained Transformer) to summarize work items and create professional, easy-to-read release notes in both Markdown and HTML formats.
+
+## Features
+
+- Automatic retrieval of work items from Azure DevOps
+- Intelligent summarization of work items using GPT
+- Generation of release notes in both Markdown and HTML formats
+- Customizable prompts for GPT summarization
+- Flexible deployment options (Azure DevOps Pipeline or local execution)
+- Markdown linting support
 
 ## Requirements
+
+- Python 3.7+
+- Azure DevOps Personal Access Token (PAT)
+- OpenAI API Key (paid)
+- Node.js and npm (for optional markdownlint-cli installation)
 
 You will need a PAID Open AI API key to run the script, support for other methods will come in future releases
 
@@ -46,56 +60,46 @@ You will need a PAID Open AI API key to run the script, support for other method
 12. Hit "Save" or "Save and Run"
 13. The pipeline will now run whenever the main branch is updated
 
-## Run the Script Locally
+## Installation
 
-### Prerequisites
+### Option 1: Automated Setup
 
-- Python 3.7+
-- Azure DevOps Personal Access Token (PAT)
-- OpenAI API Key
-- Node.js and npm (for optional markdownlint-cli installation)
+#### For Unix-based Systems
 
-### Dependencies
-
-#### Automated Setup
-
-##### Unix-based Systems
-
-To automate the setup of the repository on Unix-based systems, run the `setup.sh` script. This script will install the required Python packages, install `markdownlint-cli`, and create a `.env` file with blank values if it does not exist.
+Run the `setup.sh` script:
 
 ```bash
 chmod +x setup.sh
 ./setup.sh
 ```
 
-##### Windows
+#### For Windows
 
-To automate the setup of the repository on Windows, run the `setup.ps1` PowerShell script. This script will install the required Python packages, install `markdownlint-cli`, and create a `.env` file with blank values if it does not exist.
+Run the `setup.ps1` PowerShell script:
 
 ```powershell
 .\setup.ps1
 ```
 
-#### Manual Setup
+These scripts will install required Python packages, install `markdownlint-cli`, and create a `.env` file with blank values if it doesn't exist.
 
-If you prefer to set up the environment manually, follow these steps:
+### Option 2: Manual Setup
 
-1. Install the required Python packages:
+1. Install required Python packages:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Install `markdownlint-cli` using npm:
+2. Install `markdownlint-cli` (optional):
 
 ```bash
 npm install -g markdownlint-cli
 ```
 
-3. Create a `.env` file in the root directory of the project to store your secrets. This file should contain the following variables:
+3. Create a `.env` file in the project root with the following variables:
 
 ```dotenv
-# Azure DevOps and OpenAI Configuration
 ORG_NAME=
 PROJECT_NAME=
 SOLUTION_NAME=
@@ -108,38 +112,50 @@ MODEL_BASE_URL=
 DEVOPS_BASE_URL=
 ```
 
-If the `.env` file does not exist, it will be generated with blank values on the first load.
+## Usage
 
-### Running the Script
+### Running as an Azure DevOps Pipeline
 
-To run the script, execute the following command in your terminal:
+1. Copy the `Auto-Release-Notes.yml` file from the `pipelines` directory to your DevOps repo.
+2. Create a new pipeline in Azure DevOps, selecting "Azure Repos Git" and "Existing Azure Pipelines YAML file".
+3. Set up the "Model API Key" variable with your OpenAI API key.
+4. Adjust the variables in the YAML file (lines 10-20) to match your project settings.
+5. Save or Save and Run the pipeline.
+
+The pipeline will now run automatically whenever the main branch is updated.
+
+### Running Locally
+
+Execute the following command in your terminal:
 
 ```bash
 python -m main
 ```
 
-The script will generate the release notes in the specified output folder in both Markdown and HTML formats.
+This will generate release notes in the specified output folder in both Markdown and HTML formats.
 
-### Optional: Markdown Linting
+## Customization
 
-If you wish to lint and format the generated Markdown file, you can run the following command:
+- Modify GPT prompts by editing `SUMMARY_PROMPT` and `ITEM_PROMPT` in the `config.py` file.
+- Adjust logging settings in the script for more or less detailed execution logs.
+
+## Optional: Markdown Linting
+
+To lint and format the generated Markdown file:
 
 ```bash
 markdownlint ./Releases/*.md
 ```
 
-### Customizing Prompts
-
-You can customize the GPT prompts by editing `SUMMARY_PROMPT` and `ITEM_PROMPT` in the `config.py` file.
-
-### Logging
-
-The script uses Python's logging module to provide detailed logs of its execution.
-
 ## Contributing
 
-If you have any suggestions or improvements, feel free to create a pull request or open an issue.
+We welcome contributions! If you have suggestions or improvements, please feel free to create a pull request or open an issue.
 
 ## License
 
 This project is licensed under the MIT License.
+
+## Acknowledgements
+
+- This project uses the OpenAI API for GPT-based summarization.
+- Thanks to all contributors who have helped shape and improve this tool.

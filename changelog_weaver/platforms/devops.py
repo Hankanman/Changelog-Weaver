@@ -95,7 +95,7 @@ class DevOpsClient:
     async def get_work_items_from_query(self, query_id: str) -> List[WorkItem]:
         """Retrieve work item IDs from a query."""
         query_result = self.wit_client.query_by_id(query_id)
-        work_item_ids = [int(row[0]) for row in query_result.work_items]
+        work_item_ids = [int(row.id) for row in query_result.work_items]
         work_items = self.wit_client.get_work_items(work_item_ids, expand="All")
 
         return [self._convert_to_work_item(item) for item in work_items]
@@ -160,5 +160,5 @@ class DevOpsClient:
         comments = self.wit_client.get_comments(self.config.project, work_item_id)
         return [
             f"{format_date(comment.created_date)} | {clean_name(comment.created_by.display_name)} | {clean_string(comment.text)}"
-            for comment in comments
+            for comment in comments.comments
         ]

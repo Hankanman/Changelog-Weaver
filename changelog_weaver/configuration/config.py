@@ -42,7 +42,7 @@ class Config(BaseConfig):
                 version=env.get(ENVVARS.RELEASE_VERSION, ""),
                 brief=env.get(ENVVARS.SOFTWARE_SUMMARY, ""),
                 url=env.get(ENVVARS.PROJECT_URL, ""),
-                query=env.get(ENVVARS.RELEASE_QUERY, ""),
+                query=env.get(ENVVARS.QUERY, ""),
                 access_token=env.get(ENVVARS.ACCESS_TOKEN, ""),
             )
         except ValueError as e:
@@ -100,7 +100,7 @@ def parse_project(
         parts = parsed_url.path.strip("/").split("/")
         if len(parts) < 2:
             raise ValueError(f"Invalid Azure DevOps URL: {url}")
-        return unquote(parts[1]), parts[0], f"https://dev.azure.com/{parts[0]}"
+        return unquote(parts[1]), parts[0], "https://dev.azure.com/"
 
     def get_old_azure_devops_info() -> Tuple[str, str, str]:
         parts = parsed_url.netloc.split(".")

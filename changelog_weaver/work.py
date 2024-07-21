@@ -22,18 +22,17 @@ class Work:
         self.organization = config.project.platform.organization
         self.project = config.project.ref
 
-        if self.platform == Platform.AZURE_DEVOPS:
-            self.devops = DevOpsClient(
-                DevOpsConfig(
-                    url=config.project.platform.base_url,
-                    org=self.organization,
-                    project=self.project,
-                    query=config.project.platform.query,
-                    pat=config.project.platform.access_token,
-                )
+        if self.platform.platform == Platform.AZURE_DEVOPS:
+            client_config = DevOpsConfig(
+                url=config.project.platform.base_url,
+                org=self.organization,
+                project=self.project,
+                query=config.project.platform.query,
+                pat=config.project.platform.access_token,
             )
+            self.devops = DevOpsClient(client_config)
             self.github = None
-        elif self.platform == Platform.GITHUB:
+        elif self.platform.platform == Platform.GITHUB:
             self.github = GitHubClient(
                 GitHubConfig(
                     access_token=config.project.platform.access_token,
@@ -139,5 +138,10 @@ class Work:
 
     async def generate_ordered_work_items(self) -> List[WorkItemGroup]:
         """Generate an ordered list of work items grouped by type."""
-        all_items = await self.get_items_with_details()
+        if self.devops:
+            all_items = await self.get_items_with_details(
+                query_id=self.devops.config.query
+            )
+        elif self.github:
+            all_items = await self.get_items_with_details()
         return self._group_children_by_type(all_items)
