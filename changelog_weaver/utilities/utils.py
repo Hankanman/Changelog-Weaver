@@ -67,7 +67,7 @@ def format_date(date) -> str:
         return str(date)
 
 
-def clean_string(string: str, min_length: int = 30) -> str:
+def clean_string(string: str, min_length: int) -> str:
     """Strip a string of HTML tags, URLs, JSON, and user references.
 
     Args:
@@ -76,8 +76,6 @@ def clean_string(string: str, min_length: int = 30) -> str:
 
     Returns:
         str: The cleaned string."""
-    if not string:
-        return ""
 
     string = re.sub(r"<[^>]*?>", "", string)  # Remove HTML tags
     string = re.sub(r"http[s]?://\S+", "", string)  # Remove URLs
@@ -92,4 +90,8 @@ def clean_string(string: str, min_length: int = 30) -> str:
     string = string.strip()
     string = re.sub(r"&nbsp;", " ", string)
     string = re.sub(r"\s+", " ", string)
-    return string if len(string) >= min_length else ""
+    if len(string) >= min_length:
+        return string
+    if len(string) > 0:
+        log.warning("String is too short (%s/%s): %s", len(string), min_length, string)
+    return ""

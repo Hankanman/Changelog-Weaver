@@ -9,6 +9,8 @@ from azure.devops.v7_1.work_item_tracking.models import (
     Wiql,
     WorkItemType as AzureWorkItemType,
 )
+
+from azure.devops.v7_1.core.models import TeamProjectReference
 from msrest.authentication import BasicAuthentication
 
 from ..utilities.utils import format_date, clean_name, clean_string
@@ -55,12 +57,17 @@ class DevOpsClient:
 
     def __init__(self, config: DevOpsConfig):
         self.config = config
-        self.wit_client = self.config.connection.clients.get_work_item_tracking_client()
+        self.connection = config.connection
+        self.wit_client = self.connection.clients.get_work_item_tracking_client()
+        self.core_client = self.connection.clients.get_core_client()
+        self.work_client = self.connection.clients.get_work_client()
         self.work_item_types: Dict[str, WorkItemType] = {}
+        self.root_work_item_type: str = ""
 
     async def initialize(self):
         """Initialize the client by fetching work item types."""
         await self.fetch_work_item_types()
+        await self.determine_root_work_item_type()
 
     async def fetch_work_item_types(self):
         """Fetch work item types and store them in the client."""
@@ -75,8 +82,7 @@ class DevOpsClient:
             color="#333333",
         )
 
-    @staticmethod
-    def _convert_azure_type(azure_type: AzureWorkItemType) -> WorkItemType:
+    def _convert_azure_type(self, azure_type: AzureWorkItemType) -> WorkItemType:
         """Convert an Azure DevOps WorkItemType to our WorkItemType model."""
         return WorkItemType(
             name=azure_type.name or "",
@@ -87,6 +93,33 @@ class DevOpsClient:
     def get_work_item_type(self, type_name: str) -> Optional[WorkItemType]:
         """Get a work item type by name."""
         return self.work_item_types.get(type_name)
+
+    async def determine_root_work_item_type(self):
+        """Determine the root work item type based on the backlog configuration."""
+        try:
+            # Get the project
+            project: TeamProjectReference = self.core_client.get_project(
+                self.config.project
+            )
+
+            # Get the process
+            process = self.work_client.get_process_configuration(project.id)
+
+            # Get the portfolio backlogs
+            portfolio_backlogs = process.portfolio_backlogs
+
+            if portfolio_backlogs:
+                # The first portfolio backlog is typically the highest level (e.g., Epic)
+                root_backlog = portfolio_backlogs[0]
+                self.root_work_item_type = root_backlog.work_item_types[0].name
+            else:
+                # If there are no portfolio backlogs, use the requirement backlog
+                requirement_backlog = process.requirement_backlog
+                self.root_work_item_type = requirement_backlog.work_item_types[0].name
+
+            print(f"Root work item type: {self.root_work_item_type}")
+        except Exception as e:  # pylint: disable=broad-except
+            print(f"Error determining root work item type: {str(e)}")
 
     def get_all_work_item_types(self) -> List[WorkItemType]:
         """Get all work item types."""
@@ -126,20 +159,25 @@ class DevOpsClient:
         work_item_type = fields.get("System.WorkItemType", "")
         work_item_type_info = self.get_work_item_type(work_item_type)
 
-        return WorkItem(
-            id=azure_work_item.id,
-            title=clean_string(fields.get("System.Title", "")),
-            state=fields.get("System.State", ""),
+        work_item = WorkItem(
             type=work_item_type,
+            root=work_item_type == self.root_work_item_type,
+            orphan=fields.get("System.Parent") is None
+            and work_item_type != self.root_work_item_type,
+            id=azure_work_item.id,
+            parent_id=fields.get("System.Parent", 0),
+            state=fields["System.State"],
+            title=clean_string(fields["System.Title"], min_length=1),
             icon=work_item_type_info.icon if work_item_type_info else "",
             comment_count=fields.get("System.CommentCount", 0),
-            parent=fields.get("System.Parent", 0),
             story_points=fields.get("Microsoft.VSTS.Scheduling.StoryPoints"),
             priority=fields.get("Microsoft.VSTS.Common.Priority"),
-            description=clean_string(fields.get("System.Description")),
-            repro_steps=clean_string(fields.get("Microsoft.VSTS.TCM.ReproSteps")),
+            description=clean_string(fields.get("System.Description", ""), 10),
+            repro_steps=clean_string(
+                fields.get("Microsoft.VSTS.TCM.ReproSteps", ""), 10
+            ),
             acceptance_criteria=clean_string(
-                fields.get("Microsoft.VSTS.Common.AcceptanceCriteria")
+                fields.get("Microsoft.VSTS.Common.AcceptanceCriteria", ""), 10
             ),
             tags=(
                 fields.get("System.Tags", "").split(";")
@@ -154,11 +192,12 @@ class DevOpsClient:
             ),
             comments=self._get_comments(azure_work_item.id),
         )
+        return work_item
 
     def _get_comments(self, work_item_id: int) -> List[str]:
         """Retrieve comments for a work item."""
         comments = self.wit_client.get_comments(self.config.project, work_item_id)
         return [
-            f"{format_date(comment.created_date)} | {clean_name(comment.created_by.display_name)} | {clean_string(comment.text)}"
+            f"{format_date(comment.created_date)} | {clean_name(comment.created_by.display_name)} | {clean_string(comment.text, 10)}"
             for comment in comments.comments
         ]

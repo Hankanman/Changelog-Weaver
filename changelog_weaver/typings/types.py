@@ -67,12 +67,15 @@ class Project:
 class WorkItem:
     """Represents a work item."""
 
+    type: str
+    root: bool
+    orphan: bool
     id: int
     title: str
     state: str
-    type: str = ""
     comment_count: int = field(default=0, metadata={"alias": "commentCount"})
-    parent: int = 0
+    parent_id: int = field(default=0, metadata={"alias": "parent"})
+    parent: Optional["WorkItem"] = None
     story_points: Optional[int] = field(default=None, metadata={"alias": "storyPoints"})
     priority: Optional[int] = None
     summary: Optional[str] = None
@@ -141,6 +144,6 @@ class Comment:
     modified_by: User
 
     def __init__(self, text: str, modified_date: str, modified_by: User):
-        self.text = clean_string(text)
+        self.text = clean_string(text, 10)
         self.modified_date = format_date(modified_date)
         self.modified_by = modified_by

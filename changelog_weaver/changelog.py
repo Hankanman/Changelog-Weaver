@@ -16,43 +16,39 @@ def iterate_and_print(
     level: int = 1,
     icon_size: int = 20,
 ):
-    """Iterate through the work items by type and print them to the markdown file.
-
-    Args:
-        items_by_type (List[WorkItemGroup]): The list of work items grouped by type.
-        config (Config): The configuration object.
-        level (int, optional): The current level of the work item. Default is 1.
-        icon_size (int, optional): The size of the work item icon. Default is 20."""
+    """Iterate through the work items by type and print them to the markdown file."""
     indent = "#" * level
     icon_size = icon_size - level if len(indent) > 1 else icon_size
     for item_group in items_by_type:
         write_type_header(item_group, config, level, icon_size)
         for wi in item_group.items:
             if isinstance(wi, HierarchicalWorkItem):
-                if wi.children:
+                if wi.type == "Other" and wi.children_by_type:
+                    # Special handling for "Other" parent
+                    iterate_and_print(wi.children_by_type, config, level + 1, icon_size)
+                elif wi.children:
                     write_parent_header(wi, config, level + 1, icon_size)
                     if wi.children_by_type:
                         iterate_and_print(wi.children_by_type, config, level + 2)
+                    else:
+                        for child in wi.children:
+                            write_child_item(child, config, level + 2, icon_size)
                 else:
-                    write_child_item(wi, config, level + 1)
+                    write_child_item(wi, config, level + 1, icon_size)
             else:
                 log.warning("Unexpected item type: %s. Skipping.", type(wi))
 
 
 def write_type_header(wi: WorkItemGroup, config: Config, level: int, icon_size: int):
-    """Generate and write the header for the work item type group.
-
-    Args:
-        wi (WorkItemGroup): The work item group object.
-        config (Config): The configuration object.
-        level (int): The current level of the work item.
-        icon_size (int): The size of the work item icon."""
+    """Generate and write the header for the work item type group."""
     indent = "#" * (level + 1)
     header = (
-        f"{indent} " f"<img src='{wi.icon}' height='{icon_size}'> " f"{wi.type}s\n\n"
+        f"{indent} "
+        f"<img src='{wi.icon}' height='{icon_size}'> "
+        f"{wi.type}{'s' if wi.type != 'Other' else ''}\n\n"
     )
     config.output.write(header)
-    log.info("%s%ss", " " * level, wi.type)
+    log.info("%s%s%s", " " * level, wi.type, "s" if wi.type != "Other" else "")
 
 
 def write_parent_header(
@@ -73,18 +69,22 @@ def write_parent_header(
         f" {parent_head_link}{wi.title}\n\n"
     )
     config.output.write(header)
-    log.info("%s%s | %s", " " * level, wi.id, wi.title)
+    log.info("%s%s%s | %s", level, " " * level, wi.id, wi.title)
 
 
-def write_child_item(wi: HierarchicalWorkItem, config: Config, level: int):
+def write_child_item(
+    wi: HierarchicalWorkItem, config: Config, level: int, icon_size: int
+):
     """Write the child item to the markdown file.
 
     Args:
         wi (HierarchicalWorkItem): The hierarchical work item object.
         config (Config): The configuration object.
         level (int): The current level of the work item."""
-    config.output.write(f"- [#{wi.id}]({wi.url}) **{wi.title}** {wi.summary}\n")
-    log.info("%s%s | %s", " " * (level + 1), wi.id, wi.title)
+    config.output.write(
+        f"- <img src='{wi.icon}' height='{icon_size}'> [#{wi.id}]({wi.url}) **{wi.title}** {wi.summary}\n"
+    )
+    log.info("%s%s%s | %s", level, " " * (level + 1), wi.id, wi.title)
 
 
 async def finalise_notes(config: Config) -> None:
