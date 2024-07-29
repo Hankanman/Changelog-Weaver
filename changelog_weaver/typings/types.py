@@ -96,6 +96,9 @@ class WorkItem:
 T = TypeVar("T", WorkItem, "HierarchicalWorkItem")
 
 
+T = TypeVar("T", WorkItem, "HierarchicalWorkItem")
+
+
 class WorkItemGroup(Generic[T]):
     def __init__(self, type: str, icon: str, items: List[T]):
         self.type = type

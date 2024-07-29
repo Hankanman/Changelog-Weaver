@@ -2,6 +2,8 @@
 
 from abc import ABC, abstractmethod
 from typing import List, Union, Dict, Optional, Set
+from abc import ABC, abstractmethod
+from typing import List, Union, Dict, Optional, Set
 
 import logging as log
 
@@ -194,15 +196,19 @@ class Work:
     def get_work_item_types(self) -> List[WorkItemType]:
         """Get all work item types."""
         return self.client.get_all_work_item_types()
+        return self.client.get_all_work_item_types()
 
     def get_work_item_type(self, type_name: str) -> Optional[WorkItemType]:
         """Get a work item type by name."""
+        return self.client.get_work_item_type(type_name)
         return self.client.get_work_item_type(type_name)
 
     async def generate_ordered_work_items(
         self,
     ) -> List[WorkItemGroup[HierarchicalWorkItem]]:
         """Generate an ordered list of work items grouped by type."""
+        await self.get_items_with_details()
+        return self.by_type
         await self.get_items_with_details()
         return self.by_type
 
@@ -340,7 +346,7 @@ class Work:
         for child in children:
             if child.type not in type_groups:
                 type_groups[child.type] = WorkItemGroup(
-                    type=child.type, icon=child.icon, items=[]
+                    item_type=child.type, icon=child.icon, items=[]
                 )
             type_groups[child.type].items.append(child)
         return list(type_groups.values())

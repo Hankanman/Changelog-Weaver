@@ -3,10 +3,10 @@
 from __future__ import annotations
 import asyncio
 import logging as log
-from typing import List
+from typing import List, Union
 from .configuration import Config
 from .work import Work
-from .typings.types import HierarchicalWorkItem, WorkItemGroup
+from .typings.types import HierarchicalWorkItem, WorkItemGroup, WorkItem
 from .utilities.utils import create_contents
 
 
@@ -22,21 +22,46 @@ def iterate_and_print(
     for item_group in items_by_type:
         write_type_header(item_group, config, level, icon_size)
         for wi in item_group.items:
-            if isinstance(wi, HierarchicalWorkItem):
-                if wi.type == "Other" and wi.children_by_type:
-                    # Special handling for "Other" parent
-                    iterate_and_print(wi.children_by_type, config, level + 1, icon_size)
-                elif wi.children:
-                    write_parent_header(wi, config, level + 1, icon_size)
-                    if wi.children_by_type:
-                        iterate_and_print(wi.children_by_type, config, level + 2)
-                    else:
-                        for child in wi.children:
-                            write_child_item(child, config, level + 2, icon_size)
+            handle_work_item(wi, config, level, icon_size)
+
+
+def handle_work_item(
+    wi: Union[HierarchicalWorkItem, WorkItem],
+    config: Config,
+    level: int,
+    icon_size: int,
+):
+    """Handle the work item based on its type."""
+    if isinstance(wi, HierarchicalWorkItem):
+        handle_hierarchical_work_item(wi, config, level, icon_size)
+    else:
+        log.warning("Unexpected item type: %s. Skipping.", type(wi))
+
+
+def handle_hierarchical_work_item(
+    wi: HierarchicalWorkItem,
+    config: Config,
+    level: int,
+    icon_size: int,
+):
+    """Handle the hierarchical work item."""
+    if wi.type == "Other" and wi.children_by_type:
+        # Special handling for "Other" parent
+        iterate_and_print(wi.children_by_type, config, level + 1, icon_size)
+    elif wi.children:
+        write_parent_header(wi, config, level + 1, icon_size)
+        if wi.children_by_type:
+            iterate_and_print(wi.children_by_type, config, level + 2)
+        else:
+            for i, child in enumerate(wi.children):
+                if i == len(wi.children) - 1:
+                    write_child_item(
+                        child, config, level + 2, icon_size, last_item=True
+                    )
                 else:
-                    write_child_item(wi, config, level + 1, icon_size)
-            else:
-                log.warning("Unexpected item type: %s. Skipping.", type(wi))
+                    write_child_item(child, config, level + 2, icon_size)
+    else:
+        write_child_item(wi, config, level + 1, icon_size)
 
 
 def write_type_header(wi: WorkItemGroup, config: Config, level: int, icon_size: int):
@@ -48,7 +73,9 @@ def write_type_header(wi: WorkItemGroup, config: Config, level: int, icon_size: 
         f"{wi.type}{'s' if wi.type != 'Other' else ''}\n\n"
     )
     config.output.write(header)
-    log.info("%s%s%s", " " * level, wi.type, "s" if wi.type != "Other" else "")
+    log.info(
+        "%s%s%s", " " * level, wi.item_type, "s" if wi.item_type != "Other" else ""
+    )
 
 
 def write_parent_header(
@@ -73,7 +100,11 @@ def write_parent_header(
 
 
 def write_child_item(
-    wi: HierarchicalWorkItem, config: Config, level: int, icon_size: int
+    wi: HierarchicalWorkItem,
+    config: Config,
+    level: int,
+    icon_size: int,
+    last_item=False,
 ):
     """Write the child item to the markdown file.
 
@@ -84,6 +115,9 @@ def write_child_item(
     config.output.write(
         f"- <img src='{wi.icon}' height='{icon_size}' alt='{wi.type} Icon'> [#{wi.id}]({wi.url}) **{wi.title}** {wi.summary}\n"
     )
+    if last_item:
+        config.output.write("\n")
+
     log.info("%s%s%s | %s", level, " " * (level + 1), wi.id, wi.title)
 
 
