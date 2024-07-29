@@ -44,7 +44,7 @@ def write_type_header(wi: WorkItemGroup, config: Config, level: int, icon_size: 
     indent = "#" * (level + 1)
     header = (
         f"{indent} "
-        f"<img src='{wi.icon}' height='{icon_size}'> "
+        f"<img src='{wi.icon}' height='{icon_size}' alt='{wi.type} Icon'> "
         f"{wi.type}{'s' if wi.type != 'Other' else ''}\n\n"
     )
     config.output.write(header)
@@ -65,7 +65,7 @@ def write_parent_header(
     indent = "#" * (level + 1)
     header = (
         f"{indent} "
-        f"<img src='{wi.icon}' height='{icon_size}'>"
+        f"<img src='{wi.icon}' height='{icon_size}' alt='{wi.type} Icon'>"
         f" {parent_head_link}{wi.title}\n\n"
     )
     config.output.write(header)
@@ -82,7 +82,7 @@ def write_child_item(
         config (Config): The configuration object.
         level (int): The current level of the work item."""
     config.output.write(
-        f"- <img src='{wi.icon}' height='{icon_size}'> [#{wi.id}]({wi.url}) **{wi.title}** {wi.summary}\n"
+        f"- <img src='{wi.icon}' height='{icon_size}' alt='{wi.type} Icon'> [#{wi.id}]({wi.url}) **{wi.title}** {wi.summary}\n"
     )
     log.info("%s%s%s | %s", level, " " * (level + 1), wi.id, wi.title)
 

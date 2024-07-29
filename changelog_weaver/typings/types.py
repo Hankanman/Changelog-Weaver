@@ -1,6 +1,6 @@
 """This module contains classes for representing work items, users, and comments."""
 
-from typing import List, Optional
+from typing import List, Optional, Sequence, TypeVar, Generic
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -93,21 +93,21 @@ class WorkItem:
     children_by_type: List["WorkItemGroup"] = field(default_factory=list)
 
 
-@dataclass
-class WorkItemGroup:
-    """Represents a group of work items."""
-
-    type: str
-    icon: str
-    items: List[WorkItem]
+T = TypeVar("T", WorkItem, "HierarchicalWorkItem")
 
 
-@dataclass
+class WorkItemGroup(Generic[T]):
+    def __init__(self, type: str, icon: str, items: List[T]):
+        self.type = type
+        self.icon = icon
+        self.items: List[T] = items
+
+
 class HierarchicalWorkItem(WorkItem):
-    """Represents a hierarchical work item."""
-
-    children: List["HierarchicalWorkItem"] = field(default_factory=list)
-    children_by_type: List[WorkItemGroup] = field(default_factory=list)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.children: List["HierarchicalWorkItem"] = []
+        self.children_by_type: List[WorkItemGroup["HierarchicalWorkItem"]] = []
 
 
 @dataclass
