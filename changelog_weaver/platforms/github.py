@@ -87,7 +87,15 @@ class GitHubClient:
             issue = self.repo.get_issue(number=issue_number)
             return self._convert_to_work_item(issue)
         except GithubException:
-            return WorkItem(id=0, title="", state="")
+            return WorkItem(
+                id=0,
+                title="",
+                state="",
+                type="Issue",
+                icon="",
+                root=False,
+                orphan=False,
+            )
 
     async def get_issues_with_details(
         self, state: str = "all", labels: Optional[List[str]] = None
@@ -112,12 +120,14 @@ class GitHubClient:
 
         return WorkItem(
             id=github_item.number,
-            title=clean_string(github_item.title),
+            root=False,
+            orphan=False,
+            title=clean_string(github_item.title, 1),
             state=github_item.state,
             type=item_type,
             icon=issue_type_info.icon if issue_type_info else "",
             comment_count=github_item.comments,
-            description=clean_string(github_item.body),
+            description=clean_string(github_item.body, 10),
             tags=labels,
             url=github_item.html_url,
             comments=self._get_comments(github_item),
@@ -126,6 +136,6 @@ class GitHubClient:
     def _get_comments(self, github_item) -> List[str]:
         """Retrieve comments for a GitHub item."""
         return [
-            f"{comment.created_at} | {comment.user.login} | {clean_string(comment.body)}"
+            f"{comment.created_at} | {comment.user.login} | {clean_string(comment.body,10)}"
             for comment in github_item.get_comments()
         ]

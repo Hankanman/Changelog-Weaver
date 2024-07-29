@@ -1,6 +1,6 @@
 """This module contains classes for representing work items, users, and comments."""
 
-from typing import List, Optional, Sequence, TypeVar, Generic
+from typing import List, Optional, TypeVar, Generic
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -99,7 +99,10 @@ T = TypeVar("T", WorkItem, "HierarchicalWorkItem")
 T = TypeVar("T", WorkItem, "HierarchicalWorkItem")
 
 
+# pylint: disable=redefined-builtin
 class WorkItemGroup(Generic[T]):
+    """Represents a group of work items."""
+
     def __init__(self, type: str, icon: str, items: List[T]):
         self.type = type
         self.icon = icon
@@ -107,6 +110,8 @@ class WorkItemGroup(Generic[T]):
 
 
 class HierarchicalWorkItem(WorkItem):
+    """Represents a hierarchical work item."""
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.children: List["HierarchicalWorkItem"] = []

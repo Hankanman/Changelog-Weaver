@@ -2,8 +2,6 @@
 
 from abc import ABC, abstractmethod
 from typing import List, Union, Dict, Optional, Set
-from abc import ABC, abstractmethod
-from typing import List, Union, Dict, Optional, Set
 
 import logging as log
 
@@ -25,41 +23,36 @@ class PlatformClient(ABC):
     @abstractmethod
     async def initialize(self):
         """Initialize the client."""
-        pass
 
     @abstractmethod
     async def get_work_item_by_id(self, item_id: int) -> WorkItem:
         """Retrieve a work item by its ID."""
-        pass
 
     @abstractmethod
     async def get_work_items_from_query(self, query_id: str) -> List[WorkItem]:
         """Retrieve work items based on a search query."""
-        pass
 
     @abstractmethod
     async def get_work_items_with_details(self, **kwargs) -> List[WorkItem]:
         """Retrieve work items with details."""
-        pass
 
     @abstractmethod
     def get_all_work_item_types(self) -> List[WorkItemType]:
         """Get all work item types."""
-        pass
 
     @abstractmethod
     def get_work_item_type(self, type_name: str) -> Optional[WorkItemType]:
         """Get a work item type by name."""
-        pass
 
     @property
     @abstractmethod
     def root_work_item_type(self) -> str:
         """Get the root work item type."""
-        pass
 
 
 class DevOpsPlatformClient(PlatformClient):
+    """This class provides a platform-specific client for Azure DevOps."""
+
     def __init__(self, config: DevOpsConfig):
         self.client = DevOpsClient(config)
         self.query_id = config.query
@@ -90,6 +83,8 @@ class DevOpsPlatformClient(PlatformClient):
 
 
 class GitHubPlatformClient(PlatformClient):
+    """This class provides a platform-specific client for GitHub."""
+
     def __init__(self, config: GitHubConfig):
         self.client = GitHubClient(config)
 
@@ -196,19 +191,15 @@ class Work:
     def get_work_item_types(self) -> List[WorkItemType]:
         """Get all work item types."""
         return self.client.get_all_work_item_types()
-        return self.client.get_all_work_item_types()
 
     def get_work_item_type(self, type_name: str) -> Optional[WorkItemType]:
         """Get a work item type by name."""
-        return self.client.get_work_item_type(type_name)
         return self.client.get_work_item_type(type_name)
 
     async def generate_ordered_work_items(
         self,
     ) -> List[WorkItemGroup[HierarchicalWorkItem]]:
         """Generate an ordered list of work items grouped by type."""
-        await self.get_items_with_details()
-        return self.by_type
         await self.get_items_with_details()
         return self.by_type
 
@@ -346,7 +337,7 @@ class Work:
         for child in children:
             if child.type not in type_groups:
                 type_groups[child.type] = WorkItemGroup(
-                    item_type=child.type, icon=child.icon, items=[]
+                    type=child.type, icon=child.icon, items=[]
                 )
             type_groups[child.type].items.append(child)
         return list(type_groups.values())

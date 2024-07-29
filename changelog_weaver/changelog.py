@@ -73,9 +73,7 @@ def write_type_header(wi: WorkItemGroup, config: Config, level: int, icon_size: 
         f"{wi.type}{'s' if wi.type != 'Other' else ''}\n\n"
     )
     config.output.write(header)
-    log.info(
-        "%s%s%s", " " * level, wi.item_type, "s" if wi.item_type != "Other" else ""
-    )
+    log.info("%s%s%s", " " * level, wi.type, "s" if wi.type != "Other" else "")
 
 
 def write_parent_header(
