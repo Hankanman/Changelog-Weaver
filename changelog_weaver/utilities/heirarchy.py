@@ -1,4 +1,4 @@
-""" Module for building a hierarchical structure of work items. """
+""" Module for handling the hierarchy of work items. """
 
 from typing import Dict, List, Set
 import logging as log
@@ -6,6 +6,8 @@ from ..typings import HierarchicalWorkItem, WorkItemGroup
 
 
 class Hierarchy:
+    """Represents the hierarchy of work items."""
+
     def __init__(self, all_items: Dict[int, HierarchicalWorkItem]) -> None:
         self.all: Dict[int, HierarchicalWorkItem] = all_items
         self.root_items: List[HierarchicalWorkItem] = []
@@ -27,18 +29,22 @@ class Hierarchy:
                 if item not in parent.children:
                     parent.children.append(item)
                 process_item(parent)
-            elif not item.orphan:
+            elif not item.orphan and item.id != 0:
                 log.info("Adding root item: %s - %s", item.id, item.title)
                 if item not in self.root_items:
                     self.root_items.append(item)
 
-            if item.id != 0:  # Skip processing children for "Other" parent
-                for child in item.children:
-                    process_item(child)
-
         all_items = list(self.all.values())
         for item in all_items:
             process_item(item)
+
+        # Handle the "Other" parent separately
+        other_parent = self.all.get(0)
+        if other_parent:
+            other_parent.children_by_type = self._group_children_by_type(
+                other_parent.children
+            )
+            self.root_items.append(other_parent)
 
         # Group children by type for root items (except "Other")
         for item in self.root_items:
@@ -49,9 +55,9 @@ class Hierarchy:
 
     def _group_children_by_type(
         self, children: List[HierarchicalWorkItem]
-    ) -> List[WorkItemGroup[HierarchicalWorkItem]]:
+    ) -> List[WorkItemGroup]:
         """Group children by their type."""
-        type_groups: Dict[str, WorkItemGroup[HierarchicalWorkItem]] = {}
+        type_groups: Dict[str, WorkItemGroup] = {}
         for child in children:
             if child.type not in type_groups:
                 type_groups[child.type] = WorkItemGroup(
@@ -60,9 +66,7 @@ class Hierarchy:
             type_groups[child.type].items.append(child)
         return list(type_groups.values())
 
-    def _group_by_type(
-        self, items: List[HierarchicalWorkItem]
-    ) -> List[WorkItemGroup[HierarchicalWorkItem]]:
+    def _group_by_type(self, items: List[HierarchicalWorkItem]) -> List[WorkItemGroup]:
         """Group work items by their type while preserving hierarchy."""
         grouped_items: Dict[str, List[HierarchicalWorkItem]] = {}
         for item in items:

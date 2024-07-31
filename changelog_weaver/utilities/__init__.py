@@ -7,7 +7,7 @@ from .utils import (
     clean_string,
 )
 
-from .heirarchy_builder import Hierarchy
+from .heirarchy import Hierarchy
 
 __all__ = [
     "clean_name",
