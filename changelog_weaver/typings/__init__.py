@@ -1,23 +1,19 @@
-"""Custom type definitions for changelog_weaver."""
-
-from .types import (
-    WorkItem,
-    WorkItemType,
+from .base_types import WorkItem, WorkItemType, Platform
+from .complex_types import (
     HierarchicalWorkItem,
-    WorkItemGroup,
-    Project,
     PlatformInfo,
-    Platform,
     Notes,
+    Project,
+    WorkItemGroup,
 )
 
 __all__ = [
     "WorkItem",
     "WorkItemType",
-    "HierarchicalWorkItem",
-    "WorkItemGroup",
-    "Project",
-    "PlatformInfo",
     "Platform",
+    "WorkItemGroup",
+    "HierarchicalWorkItem",
+    "PlatformInfo",
     "Notes",
+    "Project",
 ]

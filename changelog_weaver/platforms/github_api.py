@@ -1,34 +1,21 @@
-"""This module contains the GitHub configuration and API interaction classes."""
+"""This module contains the GitHub API interaction classes."""
 
-from dataclasses import dataclass, field
 from typing import List, Optional, Dict
-from github import Github, GithubException
+from github import GithubException
 from github.Repository import Repository
 from github.Label import Label
 
 from ..utilities.utils import clean_string
-
-from ..typings.types import WorkItem, WorkItemType
-
-
-@dataclass
-class GitHubConfig:
-    """This class holds the configuration for the GitHub API and creates the connection."""
-
-    access_token: str
-    repo_name: str
-    client: Github = field(init=False)
-
-    def __post_init__(self):
-        self.client = Github(self.access_token)
+from ..typings import WorkItem, WorkItemType
 
 
-class GitHubClient:
+class GitHubAPI:
     """This class provides methods to interact with GitHub API."""
 
-    def __init__(self, config: GitHubConfig):
+    def __init__(self, config):
         self.config = config
-        self.repo: Repository = self.config.client.get_repo(self.config.repo_name)
+        self.client = config.client
+        self.repo: Repository = self.client.get_repo(self.config.repo_name)
         self.issue_types: Dict[str, WorkItemType] = {}
 
     async def initialize(self):

@@ -6,7 +6,7 @@ import logging as log
 from typing import List, Union
 from .configuration import Config
 from .work import Work
-from .typings.types import HierarchicalWorkItem, WorkItemGroup, WorkItem
+from .typings import HierarchicalWorkItem, WorkItemGroup, WorkItem
 from .utilities.utils import create_contents
 
 

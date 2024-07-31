@@ -1,20 +1,17 @@
-"""This module contains the DevOps configuration and API interaction classes."""
+"""This module contains the Azure DevOps API interaction classes."""
 
 import re
 from typing import List, Dict, Optional
-from dataclasses import dataclass, field
 
-from azure.devops.connection import Connection
+
 from azure.devops.v7_1.work_item_tracking.models import (
     Wiql,
     WorkItemType as AzureWorkItemType,
 )
 
 from azure.devops.v7_1.core.models import TeamProjectReference
-from msrest.authentication import BasicAuthentication
 
 from ..utilities.utils import format_date, clean_name, clean_string
-
 from ..typings import WorkItem, WorkItemType
 
 FIELDS = [
@@ -33,29 +30,10 @@ FIELDS = [
 ]
 
 
-@dataclass
-class DevOpsConfig:
-    """This class holds the configuration for the Azure DevOps API and creates the connection."""
-
-    url: str
-    org: str
-    project: str
-    query: str
-    pat: str
-    fields: List[str] = field(default_factory=lambda: FIELDS)
-    connection: Connection = field(init=False)
-
-    def __post_init__(self):
-        credentials = BasicAuthentication("", self.pat)
-        self.connection = Connection(
-            base_url=f"{self.url}/{self.org}", creds=credentials
-        )
-
-
-class DevOpsClient:
+class DevOpsAPI:
     """This class provides methods to interact with Azure DevOps API."""
 
-    def __init__(self, config: DevOpsConfig):
+    def __init__(self, config):
         self.config = config
         self.connection = config.connection
         self.wit_client = self.connection.clients.get_work_item_tracking_client()
