@@ -77,12 +77,20 @@ class Work:
 
     async def _fetch_parents(self):
         items_to_fetch = set()
-        for item in self.all.values():
-            if item.parent_id and item.parent_id not in self.all:
-                items_to_fetch.add(item.parent_id)
+        for item in list(self.all.values()):  # Create a list from the dictionary values
+            await self._fetch_parent_chain(item, items_to_fetch)
 
         for parent_id in items_to_fetch:
             await self.get_item_by_id(parent_id)
+
+    async def _fetch_parent_chain(
+        self, item: HierarchicalWorkItem, items_to_fetch: Set[int]
+    ):
+        current_item = item
+        while current_item.parent_id and current_item.parent_id not in self.all:
+            items_to_fetch.add(current_item.parent_id)
+            parent = await self.get_item_by_id(current_item.parent_id)
+            current_item = parent
 
     def _create_other_parent(self):
         orphaned_items = [
