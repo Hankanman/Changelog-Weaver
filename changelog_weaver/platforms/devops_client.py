@@ -30,6 +30,8 @@ class DevOpsConfig:
 
 
 class DevOpsPlatformClient(PlatformClient):
+    """Azure DevOps platform client implementation."""
+
     def __init__(self, config: DevOpsConfig):
         self.config = config
         self.api = DevOpsAPI(config)
@@ -37,6 +39,10 @@ class DevOpsPlatformClient(PlatformClient):
 
     async def initialize(self):
         await self.api.initialize()
+
+    async def close(self):
+        """Close the API client."""
+        await self.api.close()
 
     async def get_work_item_by_id(self, item_id: int) -> WorkItem:
         return await self.api.get_work_item_by_id(item_id)

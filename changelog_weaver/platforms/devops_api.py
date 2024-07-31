@@ -1,16 +1,16 @@
-"""This module contains the Azure DevOps API interaction classes."""
+""" DevOps API module for fetching work items from Azure DevOps """
 
-import re
+import asyncio
+import time
+import logging as log
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Optional
-
-
+import aiohttp
 from azure.devops.v7_1.work_item_tracking.models import (
     Wiql,
     WorkItemType as AzureWorkItemType,
 )
-
 from azure.devops.v7_1.core.models import TeamProjectReference
-
 from ..utilities.utils import format_date, clean_name, clean_string
 from ..typings import WorkItem, WorkItemType
 
@@ -31,7 +31,7 @@ FIELDS = [
 
 
 class DevOpsAPI:
-    """This class provides methods to interact with Azure DevOps API."""
+    """Class for fetching work items from Azure DevOps"""
 
     def __init__(self, config):
         self.config = config
@@ -41,15 +41,27 @@ class DevOpsAPI:
         self.work_client = self.connection.clients.get_work_client()
         self.work_item_types: Dict[str, WorkItemType] = {}
         self.root_work_item_type: str = ""
+        self.session: Optional[aiohttp.ClientSession] = None
+        self.executor = ThreadPoolExecutor(max_workers=5)
 
     async def initialize(self):
-        """Initialize the client by fetching work item types."""
+        """Initialize the API client"""
+        self.session = aiohttp.ClientSession()
         await self.fetch_work_item_types()
         await self.determine_root_work_item_type()
 
+    async def close(self):
+        """Close the API client"""
+        if self.session:
+            await self.session.close()
+        self.executor.shutdown(wait=True)
+
     async def fetch_work_item_types(self):
-        """Fetch work item types and store them in the client."""
-        azure_types = self.wit_client.get_work_item_types(self.config.project)
+        """Fetch all work item types from the project"""
+        loop = asyncio.get_event_loop()
+        azure_types = await loop.run_in_executor(
+            self.executor, self.wit_client.get_work_item_types, self.config.project
+        )
         self.work_item_types = {
             azure_type.name: self._convert_azure_type(azure_type)
             for azure_type in azure_types
@@ -61,7 +73,6 @@ class DevOpsAPI:
         )
 
     def _convert_azure_type(self, azure_type: AzureWorkItemType) -> WorkItemType:
-        """Convert an Azure DevOps WorkItemType to our WorkItemType model."""
         return WorkItemType(
             name=azure_type.name or "",
             icon=azure_type.icon.url if azure_type.icon else "",
@@ -69,75 +80,109 @@ class DevOpsAPI:
         )
 
     def get_work_item_type(self, type_name: str) -> Optional[WorkItemType]:
-        """Get a work item type by name."""
+        """Get the work item type by name"""
         return self.work_item_types.get(type_name)
 
     async def determine_root_work_item_type(self):
-        """Determine the root work item type based on the backlog configuration."""
+        """Determine the root work item type for the project"""
         try:
-            # Get the project
-            project: TeamProjectReference = self.core_client.get_project(
-                self.config.project
+            loop = asyncio.get_event_loop()
+            project: TeamProjectReference = await loop.run_in_executor(
+                self.executor, self.core_client.get_project, self.config.project
             )
-
-            # Get the process
-            process = self.work_client.get_process_configuration(project.id)
-
-            # Get the portfolio backlogs
+            process = await loop.run_in_executor(
+                self.executor, self.work_client.get_process_configuration, project.id
+            )
             portfolio_backlogs = process.portfolio_backlogs
 
             if portfolio_backlogs:
-                # The first portfolio backlog is typically the highest level (e.g., Epic)
                 root_backlog = portfolio_backlogs[0]
                 self.root_work_item_type = root_backlog.work_item_types[0].name
             else:
-                # If there are no portfolio backlogs, use the requirement backlog
                 requirement_backlog = process.requirement_backlog
                 self.root_work_item_type = requirement_backlog.work_item_types[0].name
 
             print(f"Root work item type: {self.root_work_item_type}")
-        except Exception as e:  # pylint: disable=broad-except
+        except aiohttp.ClientError as e:
             print(f"Error determining root work item type: {str(e)}")
 
     def get_all_work_item_types(self) -> List[WorkItemType]:
-        """Get all work item types."""
+        """Get all work item types"""
         return list(self.work_item_types.values())
 
     async def get_work_items_from_query(self, query_id: str) -> List[WorkItem]:
-        """Retrieve work item IDs from a query."""
-        query_result = self.wit_client.query_by_id(query_id)
-        work_item_ids = [int(row.id) for row in query_result.work_items]
-        work_items = self.wit_client.get_work_items(work_item_ids, expand="All")
+        """Get work items from a query"""
+        start_time = time.time()
+        log.info("Starting to fetch work items from query %s", query_id)
 
-        return [self._convert_to_work_item(item) for item in work_items]
+        loop = asyncio.get_event_loop()
+        query_result = await loop.run_in_executor(
+            self.executor, lambda: self.wit_client.query_by_id(query_id)
+        )
+        work_item_ids = [int(row.id) for row in query_result.work_items]
+
+        log.info("Found %s work item IDs from query", len(work_item_ids))
+
+        items = await self.get_work_items(work_item_ids)
+
+        end_time = time.time()
+        duration = end_time - start_time
+        log.info(
+            "Finished fetching %s work items in %.2f seconds", len(items), duration
+        )
+
+        return items
 
     async def get_query_wiql(self, query_id: str) -> str:
-        """Retrieve the WIQL for a given query."""
-        query = self.wit_client.get_query(self.config.project, query_id)
+        """Get the WIQL for a query"""
+        loop = asyncio.get_event_loop()
+        query = await loop.run_in_executor(
+            self.executor, self.wit_client.get_query, self.config.project, query_id
+        )
         return query.wiql
 
     async def get_work_item_by_id(self, item_id: int) -> WorkItem:
-        """Retrieve details for a specific work item."""
-        work_item = self.wit_client.get_work_item(item_id, expand="All")
-        return self._convert_to_work_item(work_item)
+        """Get a work item by ID"""
+        loop = asyncio.get_event_loop()
+        azure_work_item = await loop.run_in_executor(
+            self.executor, lambda: self.wit_client.get_work_item(item_id, expand="All")
+        )
+        return await self._convert_to_work_item(azure_work_item)
 
     async def get_work_items_from_wiql(self, wiql: str) -> List[WorkItem]:
-        """Retrieve work items with details using a WIQL query."""
+        """Get work items from a WIQL query"""
+        loop = asyncio.get_event_loop()
         wiql_object = Wiql(query=wiql)
-        query_result = self.wit_client.query_by_wiql(wiql_object).work_items
+        query_result = await loop.run_in_executor(
+            self.executor, lambda: self.wit_client.query_by_wiql(wiql_object)
+        )
+        work_item_ids = [int(item.id) for item in query_result.work_items]
+        return await self.get_work_items(work_item_ids)
 
-        work_item_ids = [int(item.id) for item in query_result]
-        work_items = self.wit_client.get_work_items(work_item_ids, expand="All")
+    async def get_work_items(self, work_item_ids: List[int]) -> List[WorkItem]:
+        """Get work items by ID"""
+        start_time = time.time()
+        log.info("Starting to fetch details for %s work items", len(work_item_ids))
 
-        return [self._convert_to_work_item(item) for item in work_items]
+        tasks = [self.get_work_item_by_id(item_id) for item_id in work_item_ids]
+        items = await asyncio.gather(*tasks)
 
-    def _convert_to_work_item(self, azure_work_item) -> WorkItem:
-        """Convert Azure DevOps work item to our WorkItem type."""
+        end_time = time.time()
+        duration = end_time - start_time
+        log.info(
+            "Finished fetching details for %s work items in %.2f seconds",
+            len(items),
+            duration,
+        )
+
+        return items
+
+    async def _convert_to_work_item(self, azure_work_item) -> WorkItem:
         fields = azure_work_item.fields
         work_item_type = fields.get("System.WorkItemType", "")
         work_item_type_info = self.get_work_item_type(work_item_type)
 
-        work_item = WorkItem(
+        return WorkItem(
             type=work_item_type,
             root=work_item_type == self.root_work_item_type,
             orphan=fields.get("System.Parent") is None
@@ -162,19 +207,16 @@ class DevOpsAPI:
                 if fields.get("System.Tags")
                 else []
             ),
-            url=re.sub(
-                r"_apis/wit/workitems",
-                "_workitems/edit",
-                azure_work_item.url,
-                flags=re.IGNORECASE,
-            ),
-            comments=self._get_comments(azure_work_item.id),
+            url=azure_work_item.url.replace("_apis/wit/workitems", "_workitems/edit"),
+            comments=await self._get_comments(azure_work_item.id),
         )
-        return work_item
 
-    def _get_comments(self, work_item_id: int) -> List[str]:
-        """Retrieve comments for a work item."""
-        comments = self.wit_client.get_comments(self.config.project, work_item_id)
+    async def _get_comments(self, work_item_id: int) -> List[str]:
+        loop = asyncio.get_event_loop()
+        comments = await loop.run_in_executor(
+            self.executor,
+            lambda: self.wit_client.get_comments(self.config.project, work_item_id),
+        )
         return [
             f"{format_date(comment.created_date)} | {clean_name(comment.created_by.display_name)} | {clean_string(comment.text, 10)}"
             for comment in comments.comments

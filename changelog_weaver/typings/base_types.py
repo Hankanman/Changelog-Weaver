@@ -1,15 +1,21 @@
+""" Base types for the changelog_weaver package. """
+
 from typing import List, Optional
 from enum import Enum
 from dataclasses import dataclass, field
 
 
 class Platform(Enum):
+    """Enum for supported platforms"""
+
     AZURE_DEVOPS = "azure_devops"
     GITHUB = "github"
 
 
 @dataclass
 class WorkItemType:
+    """Dataclass for work item types"""
+
     name: str
     icon: str
     color: str = "#000000"
@@ -17,6 +23,8 @@ class WorkItemType:
 
 @dataclass
 class WorkItem:
+    """Dataclass for work items"""
+
     id: int
     type: str
     state: str

@@ -2,9 +2,12 @@
 
 from typing import Dict, List, Set
 import logging as log
+
+from dataclasses import dataclass
 from ..typings import HierarchicalWorkItem, WorkItemGroup
 
 
+@dataclass
 class Hierarchy:
     """Represents the hierarchy of work items."""
 
@@ -21,10 +24,8 @@ class Hierarchy:
             if item.id in processed_ids:
                 return
             processed_ids.add(item.id)
-            log.info("Processing item: %s - %s", item.id, item.title)
 
             if item.parent_id and item.parent_id in self.all:
-                log.info("Parent found: %s", item.parent_id)
                 parent = self.all[item.parent_id]
                 if item not in parent.children:
                     parent.children.append(item)
@@ -80,12 +81,11 @@ class Hierarchy:
                 WorkItemGroup(type=key, icon=value[0].icon, items=value)
             )
 
-        # Ensure "Other" group is at the end of the list
-        other_group = next(
-            (group for group in grouped_children_list if group.type == "Other"), None
-        )
-        if other_group:
-            grouped_children_list.remove(other_group)
-            grouped_children_list.append(other_group)
+        # Ensure "Other" is always at the end
+        other_items = [item for item in grouped_children_list if item.type == "Other"]
+        non_other_items = [
+            item for item in grouped_children_list if item.type != "Other"
+        ]
+        grouped_children_list = non_other_items + other_items
 
         return grouped_children_list

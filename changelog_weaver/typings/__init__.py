@@ -1,3 +1,5 @@
+""" Typings for the changelog_weaver package. """
+
 from .base_types import WorkItem, WorkItemType, Platform
 from .complex_types import (
     HierarchicalWorkItem,

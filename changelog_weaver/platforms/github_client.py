@@ -22,12 +22,19 @@ class GitHubConfig:
 
 
 class GitHubPlatformClient(PlatformClient):
+    """GitHub platform client implementation."""
+
     def __init__(self, config: GitHubConfig):
         self.config = config
         self.api = GitHubAPI(config)
 
     async def initialize(self):
         await self.api.initialize()
+
+    async def close(self):
+        """Close the API client."""
+        # GitHub API doesn't require explicit closing, but we implement the method
+        # to conform to the PlatformClient interface
 
     async def get_work_item_by_id(self, item_id: int) -> WorkItem:
         return await self.api.get_issue_by_number(item_id)

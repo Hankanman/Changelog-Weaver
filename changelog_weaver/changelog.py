@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import asyncio
+import time
 import logging as log
 from typing import List, Union
 from .configuration import Config
@@ -55,13 +56,11 @@ def handle_hierarchical_work_item(
         else:
             for i, child in enumerate(wi.children):
                 if i == len(wi.children) - 1:
-                    write_child_item(
-                        child, config, level + 2, icon_size, last_item=True
-                    )
+                    write_child_item(child, config, icon_size, last_item=True)
                 else:
-                    write_child_item(child, config, level + 2, icon_size)
+                    write_child_item(child, config, icon_size)
     else:
-        write_child_item(wi, config, level + 1, icon_size)
+        write_child_item(wi, config, icon_size)
 
 
 def write_type_header(wi: WorkItemGroup, config: Config, level: int, icon_size: int):
@@ -73,7 +72,6 @@ def write_type_header(wi: WorkItemGroup, config: Config, level: int, icon_size: 
         f"{wi.type}{'s' if wi.type != 'Other' else ''}\n\n"
     )
     config.output.write(header)
-    log.info("%s%s%s", " " * level, wi.type, "s" if wi.type != "Other" else "")
 
 
 def write_parent_header(
@@ -94,13 +92,11 @@ def write_parent_header(
         f" {parent_head_link}{wi.title}\n\n"
     )
     config.output.write(header)
-    log.info("%s%s%s | %s", level, " " * level, wi.id, wi.title)
 
 
 def write_child_item(
     wi: HierarchicalWorkItem,
     config: Config,
-    level: int,
     icon_size: int,
     last_item=False,
 ):
@@ -115,8 +111,6 @@ def write_child_item(
     )
     if last_item:
         config.output.write("\n")
-
-    log.info("%s%s%s | %s", level, " " * (level + 1), wi.id, wi.title)
 
 
 async def finalise_notes(config: Config) -> None:
@@ -144,18 +138,52 @@ async def finalise_notes(config: Config) -> None:
 
 
 async def main():
-    """Main function to fetch and iterate through work items by type."""
+    """Main function to generate the changelog."""
+    log.basicConfig(
+        level=log.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    log.info("Starting changelog generation process")
+    overall_start_time = time.time()
+
     config = Config()
     if not config.valid_env:
+        log.error("Invalid environment configuration")
         input("Press Enter to exit...")
         return
 
     work = Work(config)
-    await work.initialize()
 
-    items_by_type = await work.generate_ordered_work_items()
+    try:
+        log.info("Initializing Work class")
+        init_start_time = time.time()
+        await work.initialize()
+        init_end_time = time.time()
+        log.info(
+            "Work initialization completed in %.2f seconds",
+            init_end_time - init_start_time,
+        )
 
-    iterate_and_print(items_by_type, config)
+        log.info("Generating and printing ordered work items")
+        items_start_time = time.time()
+        items_by_type = await work.generate_ordered_work_items()
+        iterate_and_print(items_by_type, config)
+        items_end_time = time.time()
+        log.info(
+            "Generated and printed ordered work items in %.2f seconds",
+            items_end_time - items_start_time,
+        )
+
+        overall_end_time = time.time()
+        log.info(
+            "Total changelog generation time: %.2f seconds",
+            overall_end_time - overall_start_time,
+        )
+
+    finally:
+        await work.close()
 
     input("Press Enter to exit...")
 
