@@ -1,4 +1,4 @@
-# Changelog Weaver (Auto-Release-Notes)
+# Changelog Weaver
 
 [![Pylint](https://github.com/hankanman/Auto-Release-Notes/actions/workflows/pylint.yml/badge.svg)](https://github.com/hankanman/Auto-Release-Notes/actions/workflows/pylint.yml)
 [![Python package](https://github.com/Hankanman/Auto-Release-Notes/actions/workflows/python-package.yml/badge.svg)](https://github.com/Hankanman/Auto-Release-Notes/actions/workflows/python-package.yml)
@@ -13,6 +13,31 @@ Changelog Weaver (Auto-Release-Notes) is a powerful tool designed to automatical
 - **Customizable Configuration**: Offers customizable prompts and environment settings to fine-tune the summarization process.
 - **Platform Flexibility**: Supports both Azure DevOps and GitHub for seamless integration with existing workflows.
 - **Automation Support**: Easily integrated into CI/CD pipelines for automated release note generation.
+
+## Demo
+
+![Demo](/assets/demo.gif)
+
+## To Do
+
+- [x] Implement platform wrapper
+- [ ] Config migration
+- [ ] Test GitHub platform
+- [ ] Write comprehensive tests
+- [ ] Package into releasable executable
+
+## Roadmap
+
+- [ ] Pipeline yaml generators:
+  - [ ] Azure DevOps
+  - [ ] GitHub
+- [ ] Local LLM support (Ollama)
+- [ ] Ability to generate notes from commit history
+- [ ] CLI for user interaction
+- [ ] GUI/web app
+- [ ] Platform support:
+  - [ ] Jira
+  - [ ] Gitlab
 
 ## Setup Instructions
 
@@ -53,6 +78,8 @@ Changelog Weaver (Auto-Release-Notes) is a powerful tool designed to automatical
    SOLUTION_NAME=YourSolutionName
    RELEASE_VERSION=1.0.0
    SOFTWARE_SUMMARY=Brief description of your software
+   GET_ITEM_SUMMARY=True
+   GET_CHANGELOG_SUMMARY=True
    PROJECT_URL=https://dev.azure.com/your-org/your-project
    QUERY=YourQueryID
    ACCESS_TOKEN=YourAzureDevOpsPAT
