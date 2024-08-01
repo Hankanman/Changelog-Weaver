@@ -2,7 +2,6 @@
 
 from typing import Tuple, Optional
 from urllib.parse import urlparse, unquote
-import logging as log
 
 from ..typings import Project, Platform, PlatformInfo, Notes
 
@@ -10,6 +9,9 @@ from .base_config import BaseConfig, ENVVARS
 from .output import Output
 from .prompts import Prompts
 from .model import Model
+from ..logger import get_logger
+
+log = get_logger(__name__)
 
 
 class Config(BaseConfig):

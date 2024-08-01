@@ -1,9 +1,12 @@
 """ Output module for creating and managing output files. """
 
 from pathlib import Path
-import logging as log
 
 import markdown
+
+from ..logger import get_logger
+
+log = get_logger(__name__)
 
 
 class Output:

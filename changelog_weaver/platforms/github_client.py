@@ -4,7 +4,7 @@ from typing import List, Optional
 from dataclasses import dataclass, field
 from github import Github
 
-from .base import PlatformClient
+from .platform_client import PlatformClient
 from ..typings import WorkItem, WorkItemType
 from .github_api import GitHubAPI
 

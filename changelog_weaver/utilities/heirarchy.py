@@ -1,10 +1,12 @@
 """ Module for handling the hierarchy of work items. """
 
 from typing import Dict, List, Set
-import logging as log
 
 from dataclasses import dataclass
 from ..typings import HierarchicalWorkItem, WorkItemGroup
+from ..logger import get_logger
+
+log = get_logger(__name__)
 
 
 @dataclass

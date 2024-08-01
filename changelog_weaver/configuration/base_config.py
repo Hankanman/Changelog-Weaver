@@ -3,10 +3,14 @@
 import os
 from pathlib import Path
 from enum import Enum
-import logging as log
 import shutil
+import logging
 
 from dotenv import load_dotenv
+
+from ..logger import get_logger
+
+log = get_logger(__name__)
 
 
 class ENVVARS(Enum):
@@ -37,13 +41,8 @@ class BaseConfig:
 
     def setup_logging(self):
         """Set up the logging configuration for the project."""
-        log.basicConfig(
-            level=self.log_level,
-            format="%(levelname)s | %(message)s",
-            handlers=[log.StreamHandler()],
-        )
-        log.getLogger("openai").setLevel(log.ERROR)
-        log.getLogger("httpx").setLevel(log.ERROR)
+        logging.getLogger("openai").setLevel(logging.ERROR)
+        logging.getLogger("httpx").setLevel(logging.ERROR)
 
     def ensure_env_file(self) -> bool:
         """Ensure the .env file exists and is valid"""

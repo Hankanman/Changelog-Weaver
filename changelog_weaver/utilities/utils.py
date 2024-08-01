@@ -2,9 +2,12 @@
 
 import re
 import datetime
-import logging as log
 import json
 from typing import List
+
+from ..logger import get_logger
+
+log = get_logger(__name__)
 
 
 def clean_name(text):

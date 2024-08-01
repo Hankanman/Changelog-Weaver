@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from azure.devops.connection import Connection
 from msrest.authentication import BasicAuthentication
 
-from .base import PlatformClient
+from .platform_client import PlatformClient
 from ..typings import WorkItem, WorkItemType
 from .devops_api import DevOpsAPI, FIELDS
 

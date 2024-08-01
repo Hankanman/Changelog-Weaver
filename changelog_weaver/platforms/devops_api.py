@@ -2,7 +2,6 @@
 
 import asyncio
 import time
-import logging as log
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Optional
 import aiohttp
@@ -11,8 +10,11 @@ from azure.devops.v7_1.work_item_tracking.models import (
     WorkItemType as AzureWorkItemType,
 )
 from azure.devops.v7_1.core.models import TeamProjectReference
-from ..utilities.utils import format_date, clean_name, clean_string
+from ..utilities import format_date, clean_name, clean_string
 from ..typings import WorkItem, WorkItemType
+from ..logger import get_logger
+
+log = get_logger(__name__)
 
 FIELDS = [
     "System.Title",
@@ -102,9 +104,9 @@ class DevOpsAPI:
                 requirement_backlog = process.requirement_backlog
                 self.root_work_item_type = requirement_backlog.work_item_types[0].name
 
-            print(f"Root work item type: {self.root_work_item_type}")
+            log.info(f"Root work item type: {self.root_work_item_type}")
         except aiohttp.ClientError as e:
-            print(f"Error determining root work item type: {str(e)}")
+            log.error(f"Error determining root work item type: {str(e)}")
 
     def get_all_work_item_types(self) -> List[WorkItemType]:
         """Get all work item types"""

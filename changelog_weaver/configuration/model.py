@@ -1,12 +1,15 @@
 """ This module contains the Model class for the GPT model."""
 
 from dataclasses import dataclass
-import logging as log
 from typing import List, Dict, Any
 import re
 
 # Third party imports
 import openai
+
+from ..logger import get_logger
+
+log = get_logger(__name__)
 
 
 @dataclass

@@ -3,7 +3,6 @@
 from typing import Dict, List, Union, Optional, Set
 import asyncio
 import time
-import logging as log
 from .configuration import Config
 from .typings import (
     HierarchicalWorkItem,
@@ -20,6 +19,9 @@ from .platforms import (
     GitHubConfig,
 )
 from .utilities import Hierarchy
+from .logger import get_logger
+
+log = get_logger(__name__)
 
 
 class Work:

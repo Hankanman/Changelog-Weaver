@@ -3,12 +3,14 @@
 from __future__ import annotations
 import asyncio
 import time
-import logging as log
 from typing import List, Union
 from .configuration import Config
 from .work import Work
 from .typings import HierarchicalWorkItem, WorkItemGroup, WorkItem
-from .utilities.utils import create_contents
+from .utilities import create_contents
+from .logger import get_logger
+
+log = get_logger(__name__)
 
 
 def iterate_and_print(
@@ -139,11 +141,6 @@ async def finalise_notes(config: Config) -> None:
 
 async def main():
     """Main function to generate the changelog."""
-    log.basicConfig(
-        level=log.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
 
     log.info("Starting changelog generation process")
     overall_start_time = time.time()
