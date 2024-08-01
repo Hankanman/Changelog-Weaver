@@ -28,9 +28,11 @@ class Work:
     """Work class for handling work items."""
 
     def __init__(self, config: Config):
+        self.config = config
         self.all: Dict[int, HierarchicalWorkItem] = {}
         self.root_items: List[HierarchicalWorkItem] = []
         self.by_type: List[WorkItemGroup] = []
+        self.item_ids: List[int] = []
         self.platform = config.project.platform
         self.client = self._create_platform_client(config)
 
@@ -69,6 +71,26 @@ class Work:
         if hasattr(self.client, "close"):
             await self.client.close()
 
+    async def summarize_work_item(self, wi: WorkItem) -> WorkItem:
+        """Summarize a work item using the AI model."""
+        log.info("Summarizing work item %s", wi.id)
+        item_prompt: str = self.config.prompts.item
+        prompt = f"{item_prompt}: {wi.title} item type: {wi.type} {wi.description} {wi.repro_steps} {wi.comments}"
+
+        wi.summary = await self.config.model.summarise(prompt)
+        return wi
+
+    async def summarize_changelog(self, changelog: List[HierarchicalWorkItem]) -> str:
+        """Summarize a work item using the AI model."""
+        software_prompt: str = self.config.prompts.summary
+        software_brief: str = self.config.project.brief
+        prompt = (
+            f"{software_prompt}{software_brief}\n"
+            f"The following is a summary of the work items completed in this release:\n"
+            f"{changelog}\nYour response should be as concise as possible"
+        )
+        return await self.config.model.summarise(prompt)
+
     def add(self, work_item: WorkItem) -> HierarchicalWorkItem:
         """Add a work item to the collection."""
         if work_item.id not in self.all:
@@ -79,6 +101,7 @@ class Work:
     async def get_item_by_id(self, item_id: Union[int, str]) -> HierarchicalWorkItem:
         """Get a work item by its ID."""
         item = await self.client.get_work_item_by_id(int(item_id))
+
         return self.add(item)
 
     async def get_items_from_query(self, query_id: str) -> List[HierarchicalWorkItem]:
@@ -92,6 +115,7 @@ class Work:
         start_time = time.time()
 
         items = await self.client.get_work_items_with_details(**kwargs)
+        self.item_ids = [item.id for item in items]
         log.info("Fetched %s work items from client", len(items))
 
         add_tasks = [self.get_item_by_id(item.id) for item in items]
@@ -104,6 +128,12 @@ class Work:
         self._create_other_parent()
         log.info("Created 'Other' parent for orphaned items")
 
+        summary_tasks = [
+            self.summarize_work_item(item)
+            for item in self.all.values()
+            if item.id in self.item_ids
+        ]
+        await asyncio.gather(*summary_tasks)
         hierarchy = Hierarchy(self.all)
         self.root_items = hierarchy.root_items
         self.by_type = hierarchy.by_type

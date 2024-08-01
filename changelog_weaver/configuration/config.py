@@ -59,6 +59,9 @@ class Config(BaseConfig):
             key=env.get(ENVVARS.GPT_API_KEY, ""),
             url=env.get(ENVVARS.MODEL_BASE_URL, ""),
             model_name=env.get(ENVVARS.MODEL, ""),
+            item_summary=env.get(ENVVARS.GET_ITEM_SUMMARY, "True").lower() == "true",
+            changelog_summary=env.get(ENVVARS.GET_CHANGELOG_SUMMARY, "True").lower()
+            == "true",
         )
 
         self.prompts = prompts or Prompts(

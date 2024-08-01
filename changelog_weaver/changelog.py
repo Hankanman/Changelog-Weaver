@@ -7,7 +7,6 @@ from typing import List, Union
 from .configuration import Config
 from .work import Work
 from .typings import HierarchicalWorkItem, WorkItemGroup, WorkItem
-from .utilities import create_contents
 from .logger import get_logger
 
 log = get_logger(__name__)
@@ -22,8 +21,10 @@ def iterate_and_print(
     """Iterate through the work items by type and print them to the markdown file."""
     indent = "#" * level
     icon_size = icon_size - level if len(indent) > 1 else icon_size
+    i = 0
     for item_group in items_by_type:
-        write_type_header(item_group, config, level, icon_size)
+        i += 1
+        write_type_header(i, item_group, config, level, icon_size)
         for wi in item_group.items:
             handle_work_item(wi, config, level, icon_size)
 
@@ -62,18 +63,27 @@ def handle_hierarchical_work_item(
                 else:
                     write_child_item(child, config, icon_size)
     else:
-        write_child_item(wi, config, icon_size)
+        write_child_item(wi, config, icon_size, last_item=True)
 
 
-def write_type_header(wi: WorkItemGroup, config: Config, level: int, icon_size: int):
+def write_type_header(
+    i: int, wi: WorkItemGroup, config: Config, level: int, icon_size: int
+):
     """Generate and write the header for the work item type group."""
     indent = "#" * (level + 1)
+    if i > 1 and level == 1:
+        config.output.write("</div>\n\n")
+
+    if level == 1:
+        config.output.write(f"<a id='{wi.type.lower()}s'></a>\n\n")
     header = (
         f"{indent} "
         f"<img src='{wi.icon}' height='{icon_size}' alt='{wi.type} Icon'> "
         f"{wi.type}{'s' if wi.type != 'Other' else ''}\n\n"
     )
     config.output.write(header)
+    if level == 1:
+        config.output.write(f"<div style='margin-left:1em'>\n\n")
 
 
 def write_parent_header(
@@ -109,13 +119,13 @@ def write_child_item(
         config (Config): The configuration object.
         level (int): The current level of the work item."""
     config.output.write(
-        f"- <img src='{wi.icon}' height='{icon_size}' alt='{wi.type} Icon'> [#{wi.id}]({wi.url}) **{wi.title}** {wi.summary}\n"
+        f"- <img src='{wi.icon}' height='{icon_size}' alt='{wi.type} Icon'> [#{wi.id}]({wi.url}) **{wi.title}** {wi.summary} {last_item}\n"
     )
     if last_item:
         config.output.write("\n")
 
 
-async def finalise_notes(config: Config) -> None:
+async def finalise_notes(work: Work, config: Config) -> None:
     """
     Finalizes the release notes by adding the summary and table of contents.
 
@@ -127,14 +137,10 @@ async def finalise_notes(config: Config) -> None:
         section_headers (Array[str]): A Array of section headers for the table of contents.
     """
     log.info("Writing final summary and table of contents...")
-    final_summary = await config.model.summarise(
-        f"{config.prompts.summary}{config.project.brief}\n"
-        f"The following is a summary of the work items completed in this release:\n"
-        f"{config.project.changelog.notes}\nYour response should be as concise as possible",
-    )
+    final_summary = await work.summarize_changelog(work.root_items)
 
     config.output.set_summary(final_summary)
-    config.output.set_toc(create_contents(config.project.changelog.headers))
+    config.output.set_toc("v1.0.0", "Changelog Weaver", "2021-09-01")
     await config.output.finalize()
     log.info("Done!")
 
@@ -154,7 +160,6 @@ async def main():
     work = Work(config)
 
     try:
-        log.info("Initializing Work class")
         init_start_time = time.time()
         await work.initialize()
         init_end_time = time.time()
@@ -165,8 +170,9 @@ async def main():
 
         log.info("Generating and printing ordered work items")
         items_start_time = time.time()
-        items_by_type = await work.generate_ordered_work_items()
-        iterate_and_print(items_by_type, config)
+        iterate_and_print(await work.generate_ordered_work_items(), config)
+        config.output.write("</div>\n")
+        await finalise_notes(work, config)
         items_end_time = time.time()
         log.info(
             "Generated and printed ordered work items in %.2f seconds",

@@ -7,6 +7,7 @@ import re
 # Third party imports
 import openai
 
+
 from ..logger import get_logger
 
 log = get_logger(__name__)
@@ -30,11 +31,23 @@ class Model:
     model_name: str
     model: Dict[str, Any]
     models: List[Dict[str, Any]]
+    item_summary: bool = True
+    changelog_summary: bool = True
 
-    def __init__(self, key: str, url: str, model_name: str, use_model: bool = True):
+    def __init__(
+        self,
+        key: str,
+        url: str,
+        model_name: str,
+        use_model: bool = True,
+        item_summary: bool = True,
+        changelog_summary: bool = True,
+    ):
         self.client = openai.OpenAI(api_key=key)
         self.api_key = key
         self.url = url
+        self.item_summary = item_summary
+        self.changelog_summary = changelog_summary
         self.model_name = model_name
         self.use_model = use_model
         self.models = [
@@ -43,12 +56,18 @@ class Model:
             {"Name": "gpt-4", "Tokens": 8192},
             {"Name": "gpt-4-32k", "Tokens": 32768},
             {"Name": "gpt-4o", "Tokens": 128000},
+            {"Name": "gpt-4o-mini", "Tokens": 128000},
         ]
         self.model = next((m for m in self.models if m["Name"] == self.model_name))
         self.headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}",
         }
+        log.info("Model initialized: %s", self.model_name)
+        if self.authenticate():
+            log.info("Model authenticated successfully")
+        else:
+            log.error("Model authentication failed")
 
     async def summarise(self, prompt: str) -> str:
         """
@@ -70,6 +89,26 @@ class Model:
             return ""
 
         return await self._openai_request(prompt)
+
+    def authenticate(self):
+        """
+        Authenticates the GPT model with the given API key.
+
+        Returns:
+            bool: True if the authentication is successful, False otherwise.
+        """
+        try:
+            openai.api_key = self.api_key
+            openai.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": "Hello"}],
+                stream=False,
+                logprobs=False,
+            )
+            return True
+        except openai.APIError as e:
+            log.error("OpenAI Error: %s", str(e))
+            return False
 
     async def _openai_request(self, prompt: str) -> str:
         openai.api_key = self.api_key
