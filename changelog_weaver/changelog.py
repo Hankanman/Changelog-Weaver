@@ -119,7 +119,7 @@ def write_child_item(
         config (Config): The configuration object.
         level (int): The current level of the work item."""
     config.output.write(
-        f"- <img src='{wi.icon}' height='{icon_size}' alt='{wi.type} Icon'> [#{wi.id}]({wi.url}) **{wi.title}** {wi.summary} {last_item}\n"
+        f"- <img src='{wi.icon}' height='{icon_size}' alt='{wi.type} Icon'> [#{wi.id}]({wi.url}) **{wi.title}** {wi.summary}\n"
     )
     if last_item:
         config.output.write("\n")
