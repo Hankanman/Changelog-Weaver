@@ -14,6 +14,10 @@ Changelog Weaver is a powerful tool designed to automatically generate comprehen
 - **Platform Flexibility**: Supports both Azure DevOps and GitHub for seamless integration with existing workflows.
 - **Automation Support**: Easily integrated into CI/CD pipelines for automated release note generation.
 
+## Example Changelog
+
+![Example Output](/assets/Example_Output.png)
+
 ## Demo
 
 ![Demo](/assets/demo.gif)
