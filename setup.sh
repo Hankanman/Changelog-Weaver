@@ -54,9 +54,6 @@ PAT=
 GPT_API_KEY=
 # A summary of the software changes or updates.
 SOFTWARE_SUMMARY=
-# The types of parental work items to include in the release notes.
-# This will depend on the work item types used in your project.
-DESIRED_WORK_ITEM_TYPES=Epic,Feature
 # The folder where the release notes will be generated.
 OUTPUT_FOLDER=Releases
 # The GPT model to use for generating release notes.
@@ -67,6 +64,8 @@ MODEL_BASE_URL=https://api.openai.com/v1
 DEVOPS_BASE_URL=https://dev.azure.com
 # The version of the Azure DevOps API to use.
 DEVOPS_API_VERSION=6.0
+# The logging level for the application.
+LOG_LEVEL=INFO
 EOL
 fi
 

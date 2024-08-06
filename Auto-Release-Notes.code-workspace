@@ -6,9 +6,22 @@
   ],
   "settings": {
     "azure-pipelines.customSchemaFile": "https://dev.azure.com/trustmarque-devops/_apis/distributedtask/yamlschema",
-    "pylint.args": [
-      "--max-line-length",
-      "200"
+    "pylint.args": ["--max-line-length", "200"],
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
+    "[markdown]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[yaml]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "visualstudioexptteam.vscodeintellicode",
+      "donjayamanne.python-extension-pack",
+      "ms-python.black-formatter",
+      "ms-python.pylint"
     ]
   }
 }

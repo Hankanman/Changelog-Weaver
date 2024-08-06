@@ -1,2 +1,6 @@
-aiohttp
+Markdown
 python-dotenv
+openai
+azure-devops
+pygithub
+aiohttp
