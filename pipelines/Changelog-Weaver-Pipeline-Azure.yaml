@@ -77,7 +77,7 @@ steps:
       addToPath: true
 
   - script: |
-      git clone --branch main https://github.com/hankanman/Auto-Release-Notes.git script-repo
+      git clone --branch main https://github.com/Hankanman/Changelog-Weaver.git script-repo
     displayName: "Clone GitHub Repository"
 
   - script: |

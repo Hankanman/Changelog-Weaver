@@ -1,7 +1,7 @@
 # Changelog Weaver
 
-[![Pylint](https://github.com/hankanman/Auto-Release-Notes/actions/workflows/pylint.yml/badge.svg)](https://github.com/hankanman/Auto-Release-Notes/actions/workflows/pylint.yml)
-[![Python package](https://github.com/Hankanman/Auto-Release-Notes/actions/workflows/python-package.yml/badge.svg)](https://github.com/Hankanman/Auto-Release-Notes/actions/workflows/python-package.yml)
+[![Pylint](https://github.com/hankanman/Changelog-Weaver/actions/workflows/pylint.yml/badge.svg)](https://github.com/hankanman/Changelog-Weaver/actions/workflows/pylint.yml)
+[![Python package](https://github.com/Hankanman/Changelog-Weaver/actions/workflows/python-package.yml/badge.svg)](https://github.com/Hankanman/Changelog-Weaver/actions/workflows/python-package.yml)
 
 Changelog Weaver is a powerful tool designed to automatically generate comprehensive release notes for projects hosted on platforms like Azure DevOps and GitHub. It leverages the capabilities of GPT (Generative Pre-trained Transformer) to summarize work items and produce professional, easy-to-read release notes in Markdown format.
 
@@ -16,7 +16,9 @@ Changelog Weaver is a powerful tool designed to automatically generate comprehen
 
 ## Example Changelog
 
-![Example Output](/assets/Example_Output.png)
+You can see a generated changelog example [here](/assets/Changelog_Example.md)
+
+<img src="/assets/Example_Output.png" alt="test" height="800px">
 
 ## Demo
 
@@ -115,7 +117,7 @@ You can integrate Changelog Weaver into your CI/CD pipeline using the provided A
 
    ```bash
    git clone https://github.com/Hankanman/Changelog-Weaver.git
-   cd Auto-Release-Notes
+   cd Changelog-Weaver
    ```
 
 2. **Create and Activate a Virtual Environment**
