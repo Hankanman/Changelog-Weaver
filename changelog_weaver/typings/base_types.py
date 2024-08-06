@@ -5,6 +5,15 @@ from enum import Enum
 from dataclasses import dataclass, field
 
 
+@dataclass
+class ApiDetails:
+    """Configuration class for the API details."""
+
+    key: str
+    url: str
+    model_name: str
+
+
 class Platform(Enum):
     """Enum for supported platforms"""
 
@@ -21,6 +30,7 @@ class WorkItemType:
     color: str = "#000000"
 
 
+# pylint: disable=too-many-instance-attributes
 @dataclass
 class WorkItem:
     """Dataclass for work items"""

@@ -3,7 +3,7 @@
 from typing import Tuple, Optional
 from urllib.parse import urlparse, unquote
 
-from ..typings import Project, Platform, PlatformInfo, Notes
+from ..typings import Project, Platform, PlatformInfo, Notes, ApiDetails
 
 from .base_config import BaseConfig, ENVVARS
 from .output import Output
@@ -56,9 +56,11 @@ class Config(BaseConfig):
             raise
 
         self.model = model or Model(
-            key=env.get(ENVVARS.GPT_API_KEY, ""),
-            url=env.get(ENVVARS.MODEL_BASE_URL, ""),
-            model_name=env.get(ENVVARS.MODEL, ""),
+            api_details=ApiDetails(
+                key=env.get(ENVVARS.GPT_API_KEY, ""),
+                url=env.get(ENVVARS.MODEL_BASE_URL, ""),
+                model_name=env.get(ENVVARS.MODEL, ""),
+            ),
             item_summary=env.get(ENVVARS.GET_ITEM_SUMMARY, "True").lower() == "true",
             changelog_summary=env.get(ENVVARS.GET_CHANGELOG_SUMMARY, "True").lower()
             == "true",

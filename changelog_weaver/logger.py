@@ -26,6 +26,8 @@ TARGET_ALIAS_LENGTH = 15
 
 
 class CustomFormatter(logging.Formatter):
+    """Custom formatter for the logger."""
+
     def format(self, record):
         if record.levelname == "INFO":
             record.levelname = ""
@@ -35,6 +37,7 @@ class CustomFormatter(logging.Formatter):
 
 
 def get_logger(name: str) -> logging.Logger:
+    """Get a logger with a custom formatter"""
     # Get alias or the last part of the module name
     alias = module_aliases.get(name, name.split(".")[-1])
 

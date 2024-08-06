@@ -2,8 +2,7 @@
 ignore=tests
 
 [MESSAGES CONTROL]
-disable=W0122
-disable=W1203
+disable=W0122,W1203
 
 [FORMAT]
-max-line-length=100
+max-line-length=150

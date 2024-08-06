@@ -48,15 +48,14 @@ class Work:
                     pat=config.project.platform.access_token,
                 )
             )
-        elif self.platform.platform == Platform.GITHUB:
+        if self.platform.platform == Platform.GITHUB:
             return GitHubPlatformClient(
                 GitHubConfig(
                     access_token=config.project.platform.access_token,
                     repo_name=config.project.ref,
                 )
             )
-        else:
-            raise ValueError(f"Unsupported platform: {self.platform}")
+        raise ValueError(f"Unsupported platform: {self.platform}")
 
     async def initialize(self):
         """Initialize the client session."""

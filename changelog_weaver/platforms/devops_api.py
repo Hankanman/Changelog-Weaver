@@ -10,6 +10,7 @@ from azure.devops.v7_1.work_item_tracking.models import (
     WorkItemType as AzureWorkItemType,
 )
 from azure.devops.v7_1.core.models import TeamProjectReference
+from azure.devops.exceptions import AzureDevOpsServiceError
 from ..utilities import format_date, clean_name, clean_string
 from ..typings import WorkItem, WorkItemType
 from ..logger import get_logger
@@ -32,15 +33,19 @@ FIELDS = [
 ]
 
 
+# pylint: disable=too-many-instance-attributes
 class DevOpsAPI:
     """Class for fetching work items from Azure DevOps"""
 
     def __init__(self, config):
         self.config = config
         self.connection = config.connection
-        self.wit_client = self.connection.clients.get_work_item_tracking_client()
-        self.core_client = self.connection.clients.get_core_client()
-        self.work_client = self.connection.clients.get_work_client()
+        try:
+            self.wit_client = self.connection.clients.get_work_item_tracking_client()
+            self.core_client = self.connection.clients.get_core_client()
+            self.work_client = self.connection.clients.get_work_client()
+        except AzureDevOpsServiceError as e:
+            log.error(f"Error initializing DevOps API: {str(e)}")
         self.work_item_types: Dict[str, WorkItemType] = {}
         self.root_work_item_type: str = ""
         self.session: Optional[aiohttp.ClientSession] = None

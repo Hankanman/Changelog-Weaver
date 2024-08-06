@@ -83,7 +83,7 @@ def write_type_header(
     )
     config.output.write(header)
     if level == 1:
-        config.output.write(f"<div style='margin-left:1em'>\n\n")
+        config.output.write("<div style='margin-left:1em'>\n\n")
 
 
 def write_parent_header(
