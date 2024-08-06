@@ -5,7 +5,7 @@
 
 Changelog Weaver is a powerful tool designed to automatically generate comprehensive release notes for projects hosted on platforms like Azure DevOps and GitHub. It leverages the capabilities of GPT (Generative Pre-trained Transformer) to summarize work items and produce professional, easy-to-read release notes in Markdown format.
 
-## Features
+## Requirements
 
 - **Automated Work Item Retrieval**: Automatically fetches work items from Azure DevOps and GitHub based on user-defined queries.
 - **Intelligent Summarization**: Utilizes GPT to summarize work items into concise and meaningful release notes.
