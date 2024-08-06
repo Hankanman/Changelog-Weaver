@@ -1,25 +1,39 @@
 # azure-pipelines.yml
 trigger:
- branches:
-   include:
-     - main
+  branches:
+    include:
+      - main
 
 pool:
   vmImage: "ubuntu-latest"
 
 variables:
-  # The Organisation Name of the Azure DevOps organisation to use i.e. "contoso" from "https://dev.azure.com/contoso"
-  ORG_NAME: "YOUR_ORG_NAME"
-  # The plain text name of the project to use (not the url encoded version) i.e. "My Project" from "https://dev.azure.com/contoso/My%20Project"
-  PROJECT_NAME: "YOUR_PROJECT_NAME"
-  # The name of the solution. This will appear as part of the title of the notes document
-  SOLUTION_NAME: "YOUR_SOLUTION_NAME"
-  # The query id for the release notes query setup in Azure DevOps as a GUID i.e. "f5b6e2af-8f0c-4f6c-9a8b-3f3f2b7e0c1e" from "https://dev.azure.com/contoso/My%20Project/_queries/query/f5b6e2af-8f0c-4f6c-9a8b-3f3f2b7e0c1e"
-  RELEASE_QUERY: "DEVOPS_WORK_ITEM_QUERY_GUID"
-  # Describe the software or project that these release notes are for, this provides context to GPT and the notes being written
-  SOFTWARE_SUMMARY: "LONG_SOFTWARE_SUMMARY"
-  # The API key for the GPT service (stored as a secret) DO NOT MODIFY THE BELOW OR ENTER YOUR API KEY HERE.
-  MODEL_API_KEY: $(Model API Key)
+  # The name of the solution or repository. (String)
+  SOLUTION_NAME:
+  # The version of the release. (String)
+  RELEASE_VERSION:
+  # A summary of the software changes or updates. (String)
+  SOFTWARE_SUMMARY:
+  # A flag indicating whether to get the item summary. (True/False)
+  GET_ITEM_SUMMARY: True
+  # A flag indicating whether to get the changelog summary. (True/False)
+  GET_CHANGELOG_SUMMARY: True
+  # The url of the project. (String) e.g. https://dev.azure.com/ORGANISATION_NAME/PROJECT_NAME
+  PROJECT_URL:
+  # The query used to filter work items for the release. (String) e.g. 38ec490b-21e2-4eba-af3f-41ebcf231c47
+  QUERY:
+  # The Personal Access Token (PAT) for accessing Azure DevOps APIs. (String)
+  ACCESS_TOKEN:
+  # The API key for accessing the GPT API. (String) (stored as a secret) DO NOT MODIFY THE BELOW OR ENTER YOUR API KEY HERE.
+  GPT_API_KEY: $(Model API Key)
+  # The base URL for the GPT API. (String) e.g. https://api.openai.com/v1
+  MODEL_BASE_URL: https://api.openai.com/v1
+  # The GPT model to use for generating release notes. (String) e.g. gpt-4o-mini check https://platform.openai.com/docs/models for more models
+  MODEL: gpt-4o-mini
+  # The folder where the release notes will be generated.
+  OUTPUT_FOLDER: Releases
+  # The logging level for the application.
+  LOG_LEVEL: INFO
 
 parameters:
   - name: majorVersion
@@ -76,32 +90,30 @@ steps:
   - script: |
       cd script-repo
       cat <<EOF > .env
-      ORG_NAME="$ORG_NAME"
-      PROJECT_NAME="$PROJECT_NAME"
       SOLUTION_NAME="$SOLUTION_NAME"
-      RELEASE_VERSION=${{parameters.majorVersion}}.${{parameters.minorVersion}}.$(date '+%Y%m%d').1
-      RELEASE_QUERY=$RELEASE_QUERY
-      GPT_API_KEY=$GPT_API_KEY
-      PAT=$SYSTEM_ACCESSTOKEN
-      MODEL="${{parameters.model}}"
-      MODEL_BASE_URL=${{parameters.modelBaseUrl}}
-      DEVOPS_BASE_URL="https://dev.azure.com"
+      RELEASE_VERSION="$RELEASE_VERSION"
       SOFTWARE_SUMMARY="$SOFTWARE_SUMMARY"
-      OUTPUT_FOLDER="${{parameters.outputFolder}}"
-      DEVOPS_API_VERSION="6.0"
-      LOG_LEVEL=INFO
+      GET_ITEM_SUMMARY="$GET_ITEM_SUMMARY"
+      GET_CHANGELOG_SUMMARY="$GET_CHANGELOG_SUMMARY"
+      PROJECT_URL="$PROJECT_URL"
+      QUERY="$QUERY"
+      ACCESS_TOKEN="$ACCESS_TOKEN"
+      GPT_API_KEY=$GPT_API_KEY
+      MODEL_BASE_URL="$MODEL_BASE_URL"
+      MODEL="$MODEL"
+      OUTPUT_FOLDER="$OUTPUT_FOLDER"
+      LOG_LEVEL="$LOG_LEVEL"
       EOF
     env:
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
       GPT_API_KEY: $(Model API Key)
-    displayName: 'Create .env file'
+    displayName: "Create .env file"
 
   - script: |
       cd script-repo
       source .venv/bin/activate
-      python main.py
+      python -m changelog_weaver
     displayName: "Run release notes script"
-
 
   - script: |
       mkdir -p "${{parameters.outputFolder}}"
@@ -113,4 +125,4 @@ steps:
       git add "${{parameters.outputFolder}}/*"
       git commit -m "Add release notes for version ${{parameters.majorVersion}}.${{parameters.minorVersion}}.$(date '+%Y%m%d').1"
       git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin ${{parameters.commitBranch}}
-    displayName: 'Commit and push release notes'
+    displayName: "Commit and push release notes"

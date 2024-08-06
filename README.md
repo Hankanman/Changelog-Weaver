@@ -3,7 +3,7 @@
 [![Pylint](https://github.com/hankanman/Auto-Release-Notes/actions/workflows/pylint.yml/badge.svg)](https://github.com/hankanman/Auto-Release-Notes/actions/workflows/pylint.yml)
 [![Python package](https://github.com/Hankanman/Auto-Release-Notes/actions/workflows/python-package.yml/badge.svg)](https://github.com/Hankanman/Auto-Release-Notes/actions/workflows/python-package.yml)
 
-Changelog Weaver (Auto-Release-Notes) is a powerful tool designed to automatically generate comprehensive release notes for projects hosted on platforms like Azure DevOps and GitHub. It leverages the capabilities of GPT (Generative Pre-trained Transformer) to summarize work items and produce professional, easy-to-read release notes in Markdown format.
+Changelog Weaver is a powerful tool designed to automatically generate comprehensive release notes for projects hosted on platforms like Azure DevOps and GitHub. It leverages the capabilities of GPT (Generative Pre-trained Transformer) to summarize work items and produce professional, easy-to-read release notes in Markdown format.
 
 ## Features
 
@@ -21,7 +21,6 @@ Changelog Weaver (Auto-Release-Notes) is a powerful tool designed to automatical
 ## To Do
 
 - [x] Implement platform wrapper
-- [ ] Config migration
 - [ ] Test GitHub platform
 - [ ] Write comprehensive tests
 - [ ] Package into releasable executable
@@ -39,6 +38,64 @@ Changelog Weaver (Auto-Release-Notes) is a powerful tool designed to automatical
   - [ ] Jira
   - [ ] Gitlab
 
+## Integrating with CI/CD
+
+You can integrate Changelog Weaver into your CI/CD pipeline using the provided Azure DevOps YAML configuration or a GitHub Actions workflow:
+
+- **Azure DevOps**: Copy the `Changelog-Weaver-Pipeline-Azure.yaml` from the `pipelines/` directory to your project’s pipeline configuration.
+- **GitHub Actions**: Adjust the provided GitHub Actions YAML to suit your repository setup.
+
+### Run as Azure DevOps Pipeline
+
+1. Copy the `Changelog-Weaver-Pipeline-Azure.yaml` file from [the pipelines directory of this repo](/pipelines)
+2. Add it to the DevOps Repo you wish to run the notes for, it is recommended this is on the main branch of the repo, the trigger is set to run on update of the main branch by default
+3. Create a new pipeline in Azure DevOps
+4. Select "Azure Repos Git"
+5. Select your Repo
+6. Select "Existing Azure Pipelines YAML file"
+7. Select the "/Changelog-Weaver-Pipeline-Azure.yaml" file, this will vary depending on where you stored the file in the repo
+8. Select "Continue"
+9. Select "Variables" > "New Variable"
+   - Name: "Model API Key"
+   - Value: `<YOUR OPENAI API KEY>`
+   - Keep this value secret: `True`
+   - Let users override this value when running this pipeline: `True`
+10. Select "OK"
+11. Adjust the remaining variables in the YAML (lines 10-20):
+
+    ```yaml
+    variables:
+      # The name of the solution or repository. (String)
+      SOLUTION_NAME:
+      # The version of the release. (String)
+      RELEASE_VERSION:
+      # A summary of the software changes or updates. (String)
+      SOFTWARE_SUMMARY:
+      # A flag indicating whether to get the item summary. (True/False)
+      GET_ITEM_SUMMARY: True
+      # A flag indicating whether to get the changelog summary. (True/False)
+      GET_CHANGELOG_SUMMARY: True
+      # The url of the project. (String) e.g. https://dev.azure.com/ORGANISATION_NAME/PROJECT_NAME
+      PROJECT_URL:
+      # The query used to filter work items for the release. (String) e.g. 38ec490b-21e2-4eba-af3f-41ebcf231c47
+      QUERY:
+      # The Personal Access Token (PAT) for accessing Azure DevOps APIs. (String)
+      ACCESS_TOKEN:
+      # The API key for accessing the GPT API. (String) (stored as a secret) DO NOT MODIFY THE BELOW OR ENTER YOUR API KEY HERE.
+      GPT_API_KEY: $(Model API Key)
+      # The base URL for the GPT API. (String) e.g. https://api.openai.com/v1
+      MODEL_BASE_URL: https://api.openai.com/v1
+      # The GPT model to use for generating release notes. (String) e.g. gpt-4o-mini check https://platform.openai.com/docs/models for more models
+      MODEL: gpt-4o-mini
+      # The folder where the release notes will be generated.
+      OUTPUT_FOLDER: Releases
+      # The logging level for the application.
+      LOG_LEVEL: INFO
+    ```
+
+12. Hit "Save" or "Save and Run"
+13. The pipeline will now run whenever the main branch is updated
+
 ## Setup Instructions
 
 ### Prerequisites
@@ -53,7 +110,7 @@ Changelog Weaver (Auto-Release-Notes) is a powerful tool designed to automatical
 1. **Clone the Repository**
 
    ```bash
-   git clone https://github.com/hankanman/Auto-Release-Notes.git
+   git clone https://github.com/Hankanman/Changelog-Weaver.git
    cd Auto-Release-Notes
    ```
 
@@ -75,18 +132,31 @@ Changelog Weaver (Auto-Release-Notes) is a powerful tool designed to automatical
    Create a `.env` file in the root directory with the following content:
 
    ```bash
-   SOLUTION_NAME=YourSolutionName
-   RELEASE_VERSION=1.0.0
-   SOFTWARE_SUMMARY=Brief description of your software
+   # The name of the solution or repository. (String)
+   SOLUTION_NAME=
+   # The version of the release. (String)
+   RELEASE_VERSION=
+   # A summary of the software changes or updates. (String)
+   SOFTWARE_SUMMARY=
+   # A flag indicating whether to get the item summary. (True/False)
    GET_ITEM_SUMMARY=True
+   # A flag indicating whether to get the changelog summary. (True/False)
    GET_CHANGELOG_SUMMARY=True
-   PROJECT_URL=https://dev.azure.com/your-org/your-project
-   QUERY=YourQueryID
-   ACCESS_TOKEN=YourAzureDevOpsPAT
-   GPT_API_KEY=YourOpenAIApiKey
+   # The url of the project. (String) e.g. https://dev.azure.com/ORGANISATION_NAME/PROJECT_NAME
+   PROJECT_URL=
+   # The query used to filter work items for the release. (String) e.g. 38ec490b-21e2-4eba-af3f-41ebcf231c47
+   QUERY=
+   # The Personal Access Token (PAT) for accessing Azure DevOps APIs. (String)
+   ACCESS_TOKEN=
+   # The API key for accessing the GPT API. (String)
+   GPT_API_KEY=
+   # The base URL for the GPT API. (String) e.g. https://api.openai.com/v1
    MODEL_BASE_URL=https://api.openai.com/v1
-   MODEL=gpt-4
+   # The GPT model to use for generating release notes. (String) e.g. gpt-4o-mini check https://platform.openai.com/docs/models for more models
+   MODEL=gpt-4o-mini
+   # The folder where the release notes will be generated.
    OUTPUT_FOLDER=Releases
+   # The logging level for the application.
    LOG_LEVEL=INFO
    ```
 
@@ -101,13 +171,6 @@ python -m changelog_weaver
 ```
 
 This will fetch work items based on the configuration and generate a Markdown file containing the release notes.
-
-#### Integrating with CI/CD
-
-You can integrate Changelog Weaver into your CI/CD pipeline using the provided Azure DevOps YAML configuration or a GitHub Actions workflow:
-
-- **Azure DevOps**: Copy the `Auto-Release-Notes.yaml` from the `pipelines/` directory to your project’s pipeline configuration.
-- **GitHub Actions**: Adjust the provided GitHub Actions YAML to suit your repository setup.
 
 ### Customization
 
