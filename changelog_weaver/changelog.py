@@ -3,6 +3,7 @@
 from __future__ import annotations
 import asyncio
 import time
+import sys
 from typing import List, Union
 from .configuration import Config
 from .work import Work
@@ -154,8 +155,7 @@ async def main():
     config = Config()
     if not config.valid_env:
         log.error("Invalid environment configuration")
-        input("Press Enter to exit...")
-        return
+        sys.exit(1)  # Exit immediately if the environment is invalid
 
     work = Work(config)
 
@@ -185,10 +185,16 @@ async def main():
             overall_end_time - overall_start_time,
         )
 
+    except Exception as e:
+        log.error(
+            f"An error occurred during changelog generation: {str(e)}", exc_info=True
+        )
+        raise  # Re-raise the exception to be caught by the main try-except block
+
     finally:
         await work.close()
 
-    input("Press Enter to exit...")
+    log.info("Changelog generation completed successfully")
 
 
 if __name__ == "__main__":
