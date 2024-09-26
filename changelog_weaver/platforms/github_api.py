@@ -115,9 +115,9 @@ class GitHubAPI:
 
         issues_root = HierarchicalWorkItem(
             id=-1,
-            type="Issues",
+            type="Issue",
             state="N/A",
-            title="Issues",
+            title="Issue",
             icon="https://github.githubassets.com/images/modules/logos_page/Octocat.png",
             root=True,
             orphan=False,
@@ -130,9 +130,9 @@ class GitHubAPI:
 
         prs_root = HierarchicalWorkItem(
             id=-2,
-            type="Pull Requests",
+            type="Pull Request",
             state="N/A",
-            title="Pull Requests",
+            title="Pull Request",
             icon="https://github.githubassets.com/images/modules/git-pull-request.svg",
             root=True,
             orphan=False,
@@ -141,15 +141,19 @@ class GitHubAPI:
 
         commits_root = HierarchicalWorkItem(
             id=-3,
-            type="Commits",
+            type="Commit",
             state="N/A",
-            title="Commits",
+            title="Commit",
             icon="https://github.githubassets.com/images/modules/commits/commit.svg",
             root=True,
             orphan=False,
             children=[
                 HierarchicalWorkItem(
-                    id=commit.sha,
+                    id=(
+                        int(commit.sha[:7], 16)
+                        if commit.sha[:7].isalnum()
+                        else hash(commit.sha[:7])
+                    ),
                     type="Commit",
                     state="N/A",
                     title=commit.message,
@@ -158,7 +162,7 @@ class GitHubAPI:
                     orphan=True,
                     children=[],
                     url=commit.url,
-                    sha=commit.sha,
+                    sha=commit.sha[:7],
                 )
                 for commit in commits
             ],

@@ -13,9 +13,9 @@ from .logger import get_logger
 log = get_logger(__name__)
 
 GITHUB_ICONS = {
-    "Issues": "https://raw.githubusercontent.com/Hankanman/Changelog-Weaver/refs/heads/main/assets/issue-icon.svg",
-    "Pull Requests": "https://raw.githubusercontent.com/Hankanman/Changelog-Weaver/refs/heads/main/assets/pull-request-icon.svg",
-    "Commits": "https://raw.githubusercontent.com/Hankanman/Changelog-Weaver/refs/heads/main/assets/commit-icon.svg",
+    "Issue": "https://raw.githubusercontent.com/Hankanman/Changelog-Weaver/refs/heads/main/assets/issue-icon.svg",
+    "Pull Request": "https://raw.githubusercontent.com/Hankanman/Changelog-Weaver/refs/heads/main/assets/pull-request-icon.svg",
+    "Commit": "https://raw.githubusercontent.com/Hankanman/Changelog-Weaver/refs/heads/main/assets/commit-icon.svg",
     "Comment": "https://raw.githubusercontent.com/Hankanman/Changelog-Weaver/refs/heads/main/assets/comment-icon.svg",
 }
 
@@ -29,54 +29,54 @@ AZURE_ICONS = {
 }
 
 
-def get_icon_html(icon_url: str, alt_text: str) -> str:
+def get_icon_html(icon_url: str, alt_text: str, icon_size: int = 16) -> str:
     """Generate HTML for an icon."""
-    return f'<img src="{icon_url}" width="16" height="16" alt="{alt_text}" style="vertical-align: middle; margin-right: 5px;">'
+    return f'<img src="{icon_url}" width="{icon_size}" height="{icon_size}" alt="{alt_text}" style="vertical-align: middle; margin-right: 5px;">'
 
 
 def iterate_and_print(
     items_by_type: List[WorkItemGroup],
     config: Config,
+    level: int = 2,
 ):
     """Iterate through work items and print them in the changelog."""
     for item_group in items_by_type:
-        write_type_header(item_group, config)
-        if (
-            item_group.type == "Commits"
-            and config.project.platform.platform == Platform.GITHUB
-        ):
-            write_commit_items(item_group, config)
+        write_type_header(item_group, config, level)
+        if config.project.platform.platform == Platform.GITHUB:
+            write_github_items(item_group, config)
         else:
-            for wi in item_group.items:
-                handle_work_item(wi, config)
+            write_azure_devops_items(item_group, config, level + 1)
         config.output.write("</div>\n\n")  # Close the div for each group
 
 
-def handle_work_item(
-    wi: Union[HierarchicalWorkItem, WorkItem],
-    config: Config,
-):
-    """Handle different types of work items."""
-    if isinstance(wi, HierarchicalWorkItem):
-        write_child_item(wi, config)
+def write_github_items(item_group: WorkItemGroup, config: Config):
+    """Write GitHub items to the changelog."""
+    if item_group.type == "Commits":
+        write_commit_items(item_group, config)
     else:
-        log.warning("Unexpected item type: %s. Skipping.", type(wi))
+        for wi in item_group.items:
+            write_github_item(wi, config)
+
+
+def write_azure_devops_items(item_group: WorkItemGroup, config: Config, level: int):
+    """Write Azure DevOps items to the changelog."""
+    for wi in item_group.items:
+        write_azure_devops_item(wi, config, level)
 
 
 def write_type_header(
     wi: WorkItemGroup,
     config: Config,
+    level: int,
 ):
     """Write the header for a group of work items."""
     if config.project.platform.platform == Platform.GITHUB:
         icon_url = GITHUB_ICONS.get(wi.type, GITHUB_ICONS["Comment"])
     else:
         icon_url = AZURE_ICONS.get(wi.type, AZURE_ICONS["Other"])
-
-    icon_html = get_icon_html(icon_url, f"{wi.type} Icon")
-
-    config.output.write(f"<a id='{wi.type.lower().replace(' ', '-')}'></a>\n\n")
-    header = f"## {icon_html} {wi.type}\n\n"
+    icon_html = get_icon_html(icon_url, f"{wi.type} Icon", 20)
+    config.output.write(f"<a id='{wi.type.lower().replace(' ', '-')}s'></a>\n\n")
+    header = f"{'#' * level} {icon_html} {wi.type}s\n\n"
     config.output.write(header)
     config.output.write("<div style='margin-left:1em'>\n\n")
 
@@ -88,7 +88,9 @@ def write_commit_items(
     """Write commit items for GitHub."""
     for commit in item_group.items:
         if isinstance(commit, HierarchicalWorkItem) and hasattr(commit, "sha"):
-            sha = commit.sha[:7] if commit.sha else ""
+            sha = (
+                commit.sha[:7] if commit.sha else ""
+            )  # Shorten the commit hash to 7 characters
             title = commit.title if commit.title else ""
             url = commit.url if commit.url else "#"
             icon_html = get_icon_html(GITHUB_ICONS["Commits"], "Commit Icon")
@@ -96,25 +98,44 @@ def write_commit_items(
     config.output.write("\n")
 
 
-def write_child_item(
+def write_github_item(
     wi: HierarchicalWorkItem,
     config: Config,
 ):
-    """Write a child work item."""
+    """Write a GitHub work item."""
     summary = wi.summary if wi.summary is not None else ""
     id_str = f"#{wi.id}" if wi.id is not None else ""
     title = wi.title if wi.title is not None else ""
     url = wi.url if wi.url is not None else "#"
     type_str = wi.type if wi.type is not None else "Unknown"
-
-    if config.project.platform.platform == Platform.GITHUB:
-        icon_url = GITHUB_ICONS.get(type_str, GITHUB_ICONS["Comment"])
-    else:
-        icon_url = AZURE_ICONS.get(type_str, AZURE_ICONS["Other"])
-
+    icon_url = GITHUB_ICONS.get(type_str, GITHUB_ICONS["Comment"])
     icon_html = get_icon_html(icon_url, f"{type_str} Icon")
-
     config.output.write(f"{icon_html} [{id_str}]({url}) **{title}** {summary}\n")
+
+
+def write_azure_devops_item(
+    wi: HierarchicalWorkItem,
+    config: Config,
+    level: int,
+):
+    """Write an Azure DevOps work item."""
+    type_str = wi.type if wi.type is not None else "Unknown"
+    icon_url = AZURE_ICONS.get(type_str, AZURE_ICONS["Other"])
+    icon_html = get_icon_html(icon_url, f"{type_str} Icon", 20 - level)
+    id_str = f"#{wi.id}" if wi.id is not None else ""
+    title = wi.title if wi.title is not None else ""
+    url = wi.url if wi.url is not None else "#"
+    summary = wi.summary if wi.summary is not None else ""
+
+    header = f"{'#' * level} {icon_html} [{id_str}]({url}) {title}\n\n"
+    config.output.write(header)
+
+    if summary:
+        config.output.write(f"{summary}\n\n")
+
+    if wi.children:
+        for child in wi.children:
+            write_azure_devops_item(child, config, level + 1)
 
 
 async def finalise_notes(work: Work, config: Config) -> None:

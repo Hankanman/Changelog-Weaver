@@ -1,4 +1,4 @@
-""" This module contains the Work class which is responsible for fetching and summarizing work items from the platform. """
+"""Work module for changelog-weaver"""
 
 from typing import Dict, List, Union, Optional
 import asyncio
@@ -74,7 +74,6 @@ class Work:
         if not self.config.model.item_summary:
             log.info("Skipping work item summary due to configuration setting")
             return wi
-
         log.info("Summarizing work item %s", wi.id)
         item_prompt: str = self.config.prompts.item
         prompt = f"{item_prompt}: {wi.title} item type: {wi.type} {wi.description} {wi.comments}"
@@ -86,7 +85,6 @@ class Work:
         if not self.config.model.changelog_summary:
             log.info("Skipping changelog summary due to configuration setting")
             return ""
-
         software_prompt: str = self.config.prompts.summary
         software_brief: str = self.config.project.brief
         prompt = (
@@ -154,6 +152,7 @@ class Work:
                 )
                 for root_item in self.root_items
             ]
+
         end_time = time.time()
         log.info(
             "Fetched and processed work items in %.2f seconds", end_time - start_time
@@ -163,7 +162,6 @@ class Work:
     async def _fetch_parents(self):
         if self.platform.platform != Platform.AZURE_DEVOPS:
             return
-
         log.info("Starting to fetch parent items")
         start_time = time.time()
         items_to_fetch = set()
@@ -173,21 +171,18 @@ class Work:
             while current_item.parent_id and current_item.parent_id not in self.all:
                 items_to_fetch.add(current_item.parent_id)
                 current_item = await self.get_item_by_id(current_item.parent_id)
-
         log.info(f"Fetching {len(items_to_fetch)} parent items")
         batch_size = 10
         for i in range(0, len(items_to_fetch), batch_size):
             batch = list(items_to_fetch)[i : i + batch_size]
             parent_fetch_tasks = [self.get_item_by_id(parent_id) for parent_id in batch]
             await asyncio.gather(*parent_fetch_tasks)
-
         end_time = time.time()
         log.info(f"Fetched parent items in {end_time - start_time:.2f} seconds")
 
     def _create_other_parent(self):
         if self.platform.platform == Platform.GITHUB:
             return  # GitHub doesn't need an "Other" parent
-
         orphaned_items = [
             item for item in self.all.values() if item.orphan and item.id != 0
         ]
