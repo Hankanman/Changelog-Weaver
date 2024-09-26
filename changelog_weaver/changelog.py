@@ -1,4 +1,4 @@
-"""Iterate and Print Work Items by Type"""
+"""Module for generating changelogs."""
 
 from __future__ import annotations
 import asyncio
@@ -7,158 +7,137 @@ import sys
 from typing import List, Union
 from .configuration import Config
 from .work import Work
-from .typings import HierarchicalWorkItem, WorkItemGroup, WorkItem
+from .typings import HierarchicalWorkItem, WorkItemGroup, WorkItem, Platform
 from .logger import get_logger
 
 log = get_logger(__name__)
+
+GITHUB_ICONS = {
+    "Issues": "https://raw.githubusercontent.com/Hankanman/Changelog-Weaver/refs/heads/main/assets/issue-icon.svg",
+    "Pull Requests": "https://raw.githubusercontent.com/Hankanman/Changelog-Weaver/refs/heads/main/assets/pull-request-icon.svg",
+    "Commits": "https://raw.githubusercontent.com/Hankanman/Changelog-Weaver/refs/heads/main/assets/commit-icon.svg",
+    "Comment": "https://raw.githubusercontent.com/Hankanman/Changelog-Weaver/refs/heads/main/assets/comment-icon.svg",
+}
+
+AZURE_ICONS = {
+    "Epic": "https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_crown?color=E06C00&v=2",
+    "Feature": "https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_trophy?color=773B93&v=2",
+    "User Story": "https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_book?color=009CCC&v=2",
+    "Bug": "https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_insect?color=CC293D&v=2",
+    "Task": "https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_task?color=F2CB1D&v=2",
+    "Other": "https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_review?color=333333&v=2",
+}
+
+
+def get_icon_html(icon_url: str, alt_text: str) -> str:
+    """Generate HTML for an icon."""
+    return f'<img src="{icon_url}" width="16" height="16" alt="{alt_text}" style="vertical-align: middle; margin-right: 5px;">'
 
 
 def iterate_and_print(
     items_by_type: List[WorkItemGroup],
     config: Config,
-    level: int = 1,
-    icon_size: int = 20,
 ):
-    """Iterate through the work items by type and print them to the markdown file."""
-    indent = "#" * level
-    icon_size = icon_size - level if len(indent) > 1 else icon_size
-    i = 0
+    """Iterate through work items and print them in the changelog."""
     for item_group in items_by_type:
-        i += 1
-        write_type_header(i, item_group, config, level, icon_size)
-        for wi in item_group.items:
-            handle_work_item(wi, config, level, icon_size)
+        write_type_header(item_group, config)
+        if (
+            item_group.type == "Commits"
+            and config.project.platform.platform == Platform.GITHUB
+        ):
+            write_commit_items(item_group, config)
+        else:
+            for wi in item_group.items:
+                handle_work_item(wi, config)
+        config.output.write("</div>\n\n")  # Close the div for each group
 
 
 def handle_work_item(
     wi: Union[HierarchicalWorkItem, WorkItem],
     config: Config,
-    level: int,
-    icon_size: int,
 ):
-    """Handle the work item based on its type."""
+    """Handle different types of work items."""
     if isinstance(wi, HierarchicalWorkItem):
-        handle_hierarchical_work_item(wi, config, level, icon_size)
+        write_child_item(wi, config)
     else:
         log.warning("Unexpected item type: %s. Skipping.", type(wi))
 
 
-def handle_hierarchical_work_item(
-    wi: HierarchicalWorkItem,
-    config: Config,
-    level: int,
-    icon_size: int,
-):
-    """Handle the hierarchical work item."""
-    if wi.type == "Other" and wi.children_by_type:
-        # Special handling for "Other" parent
-        iterate_and_print(wi.children_by_type, config, level + 1, icon_size)
-    elif wi.children:
-        write_parent_header(wi, config, level + 1, icon_size)
-        if wi.children_by_type:
-            iterate_and_print(wi.children_by_type, config, level + 2)
-        else:
-            for i, child in enumerate(wi.children):
-                if i == len(wi.children) - 1:
-                    write_child_item(child, config, icon_size, last_item=True)
-                else:
-                    write_child_item(child, config, icon_size)
-    else:
-        write_child_item(wi, config, icon_size, last_item=True)
-
-
 def write_type_header(
-    i: int, wi: WorkItemGroup, config: Config, level: int, icon_size: int
+    wi: WorkItemGroup,
+    config: Config,
 ):
-    """Generate and write the header for the work item type group."""
-    indent = "#" * (level + 1)
-    if i > 1 and level == 1:
-        config.output.write("</div>\n\n")
+    """Write the header for a group of work items."""
+    if config.project.platform.platform == Platform.GITHUB:
+        icon_url = GITHUB_ICONS.get(wi.type, GITHUB_ICONS["Comment"])
+    else:
+        icon_url = AZURE_ICONS.get(wi.type, AZURE_ICONS["Other"])
 
-    if level == 1:
-        config.output.write(f"<a id='{wi.type.lower()}s'></a>\n\n")
-    header = (
-        f"{indent} "
-        f"<img src='{wi.icon}' height='{icon_size}' alt='{wi.type} Icon'> "
-        f"{wi.type}{'s' if wi.type != 'Other' else ''}\n\n"
-    )
+    icon_html = get_icon_html(icon_url, f"{wi.type} Icon")
+
+    config.output.write(f"<a id='{wi.type.lower().replace(' ', '-')}'></a>\n\n")
+    header = f"## {icon_html} {wi.type}\n\n"
     config.output.write(header)
-    if level == 1:
-        config.output.write("<div style='margin-left:1em'>\n\n")
+    config.output.write("<div style='margin-left:1em'>\n\n")
 
 
-def write_parent_header(
-    wi: HierarchicalWorkItem, config: Config, level: int, icon_size: int
+def write_commit_items(
+    item_group: WorkItemGroup,
+    config: Config,
 ):
-    """Generate and write the header for the parent item.
-
-    Args:
-        wi (HierarchicalWorkItem): The hierarchical work item object.
-        config (Config): The configuration object.
-        level (int): The current level of the work item.
-        icon_size (int): The size of the work item icon."""
-    parent_head_link = f"[#{wi.id}]({wi.url}) " if wi.id != 0 else ""
-    indent = "#" * (level + 1)
-    header = (
-        f"{indent} "
-        f"<img src='{wi.icon}' height='{icon_size}' alt='{wi.type} Icon'>"
-        f" {parent_head_link}{wi.title}\n\n"
-    )
-    config.output.write(header)
+    """Write commit items for GitHub."""
+    for commit in item_group.items:
+        if isinstance(commit, HierarchicalWorkItem) and hasattr(commit, "sha"):
+            sha = commit.sha[:7] if commit.sha else ""
+            title = commit.title if commit.title else ""
+            url = commit.url if commit.url else "#"
+            icon_html = get_icon_html(GITHUB_ICONS["Commits"], "Commit Icon")
+            config.output.write(f"{icon_html} [{sha}]({url}) {title}\n")
+    config.output.write("\n")
 
 
 def write_child_item(
     wi: HierarchicalWorkItem,
     config: Config,
-    icon_size: int,
-    last_item=False,
 ):
-    """Write the child item to the markdown file.
+    """Write a child work item."""
+    summary = wi.summary if wi.summary is not None else ""
+    id_str = f"#{wi.id}" if wi.id is not None else ""
+    title = wi.title if wi.title is not None else ""
+    url = wi.url if wi.url is not None else "#"
+    type_str = wi.type if wi.type is not None else "Unknown"
 
-    Args:
-        wi (HierarchicalWorkItem): The hierarchical work item object.
-        config (Config): The configuration object.
-        level (int): The current level of the work item."""
-    config.output.write(
-        f"- <img src='{wi.icon}' height='{icon_size}' alt='{wi.type} Icon'> [#{wi.id}]({wi.url}) **{wi.title}** {wi.summary}\n"
-    )
-    if last_item:
-        config.output.write("\n")
+    if config.project.platform.platform == Platform.GITHUB:
+        icon_url = GITHUB_ICONS.get(type_str, GITHUB_ICONS["Comment"])
+    else:
+        icon_url = AZURE_ICONS.get(type_str, AZURE_ICONS["Other"])
+
+    icon_html = get_icon_html(icon_url, f"{type_str} Icon")
+
+    config.output.write(f"{icon_html} [{id_str}]({url}) **{title}** {summary}\n")
 
 
 async def finalise_notes(work: Work, config: Config) -> None:
-    """
-    Finalizes the release notes by adding the summary and table of contents.
-
-    Args:
-        html (bool): A boolean flag indicating whether to generate HTML output.
-        summary_notes (str): The summary of the work items completed in this release.
-        file_md (Path): The path to the output Markdown file.
-        file_html (Path): The path to the output HTML file.
-        section_headers (Array[str]): A Array of section headers for the table of contents.
-    """
+    """Finalize the changelog by adding summary and table of contents."""
     log.info("Writing final summary and table of contents...")
     final_summary = await work.summarize_changelog(work.root_items)
-
     config.output.set_summary(final_summary)
-    config.output.set_toc("v1.0.0", "Changelog Weaver", "2021-09-01")
+    config.output.set_toc(
+        config.project.version, config.project.name, time.strftime("%Y-%m-%d")
+    )
     await config.output.finalize()
     log.info("Done!")
 
 
 async def main():
     """Main function to generate the changelog."""
-
     log.info("Starting changelog generation process")
     overall_start_time = time.time()
-
     config = Config()
     if not config.valid_env:
         log.error("Invalid environment configuration")
-        sys.exit(1)  # Exit immediately if the environment is invalid
-
+        sys.exit(1)
     work = Work(config)
-
     try:
         init_start_time = time.time()
         await work.initialize()
@@ -167,33 +146,28 @@ async def main():
             "Work initialization completed in %.2f seconds",
             init_end_time - init_start_time,
         )
-
         log.info("Generating and printing ordered work items")
         items_start_time = time.time()
-        iterate_and_print(await work.generate_ordered_work_items(), config)
-        config.output.write("</div>\n")
+        items_by_type = await work.generate_ordered_work_items()
+        iterate_and_print(items_by_type, config)
         await finalise_notes(work, config)
         items_end_time = time.time()
         log.info(
             "Generated and printed ordered work items in %.2f seconds",
             items_end_time - items_start_time,
         )
-
         overall_end_time = time.time()
         log.info(
             "Total changelog generation time: %.2f seconds",
             overall_end_time - overall_start_time,
         )
-
     except Exception as e:
         log.error(
             f"An error occurred during changelog generation: {str(e)}", exc_info=True
         )
-        raise  # Re-raise the exception to be caught by the main try-except block
-
+        raise
     finally:
         await work.close()
-
     log.info("Changelog generation completed successfully")
 
 

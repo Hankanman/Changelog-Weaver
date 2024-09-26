@@ -85,7 +85,6 @@ class Output:
         try:
             content = self.read()
             headers = re.findall(r"^##\s+(.+)$", content, re.MULTILINE)
-
             toc_entries = []
             for header in headers:
                 # Create an anchor link by converting the header to lowercase, replacing spaces with hyphens, and removing non-alphanumeric characters
@@ -94,23 +93,19 @@ class Output:
                 anchor = anchor.strip()
                 if anchor == "Other":
                     anchor = "Others"
-
+                anchor_link = anchor.lower().replace(" ", "-")
                 # Dynamically create TOC entry with appropriate formatting
-                toc_entries.append(f"<li>[{anchor}](#{anchor.lower()})</li>")
-
+                toc_entries.append(f"<li>[{anchor}](#{anchor_link})</li>")
             # Join TOC entries as HTML list items
             toc_content = "".join(toc_entries)
-
             # Define the full table format with dynamically generated TOC
             toc_table = (
                 f"| Contents | Details |\n"
                 f"| - | - |\n"
                 f"| {toc_content} | Version: {version}<br>Released: {date}<br>Software: {software}<br> |"
             )
-
             # Replace the placeholder <TABLEOFCONTENTS> with the generated TOC table
             updated_content = content.replace("<TABLEOFCONTENTS>", toc_table)
-
             # Write the updated content back to the file
             with open(self.path, "w", encoding="utf-8") as file_output:
                 file_output.write(updated_content)

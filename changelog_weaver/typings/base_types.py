@@ -14,6 +14,17 @@ class ApiDetails:
     model_name: str
 
 
+@dataclass
+class CommitInfo:
+    """Dataclass for commit information"""
+
+    sha: str
+    message: str
+    author: str
+    date: str
+    url: str
+
+
 class Platform(Enum):
     """Enum for supported platforms"""
 
@@ -53,4 +64,5 @@ class WorkItem:
     acceptance_criteria: Optional[str] = None
     tags: List[str] = field(default_factory=list)
     url: str = ""
+    sha: Optional[str] = None
     comments: List[str] = field(default_factory=list)

@@ -1,6 +1,6 @@
-"""Work module for changelog-weaver"""
+""" This module contains the Work class which is responsible for fetching and summarizing work items from the platform. """
 
-from typing import Dict, List, Union, Optional, Set
+from typing import Dict, List, Union, Optional
 import asyncio
 import time
 from .configuration import Config
@@ -10,6 +10,7 @@ from .typings import (
     Platform,
     WorkItem,
     WorkItemType,
+    CommitInfo,
 )
 from .platforms import (
     PlatformClient,
@@ -25,7 +26,7 @@ log = get_logger(__name__)
 
 
 class Work:
-    """Work class for handling work items."""
+    """Class for fetching and summarizing work items from the platform."""
 
     def __init__(self, config: Config):
         self.config = config
@@ -37,7 +38,6 @@ class Work:
         self.client = self._create_platform_client(config)
 
     def _create_platform_client(self, config: Config) -> PlatformClient:
-        """Create the platform client based on the configuration."""
         if self.platform.platform == Platform.AZURE_DEVOPS:
             return DevOpsPlatformClient(
                 DevOpsConfig(
@@ -58,7 +58,7 @@ class Work:
         raise ValueError(f"Unsupported platform: {self.platform}")
 
     async def initialize(self):
-        """Initialize the client session."""
+        """Initialize the platform client."""
         log.info("Initializing Work class")
         start_time = time.time()
         await self.client.initialize()
@@ -66,21 +66,27 @@ class Work:
         log.info(f"Work class initialized in {end_time - start_time} seconds")
 
     async def close(self):
-        """Close the client session."""
-        if hasattr(self.client, "close"):
-            await self.client.close()
+        """Close the platform client."""
+        await self.client.close()
 
     async def summarize_work_item(self, wi: WorkItem) -> WorkItem:
-        """Summarize a work item using the AI model."""
+        """Summarize a work item."""
+        if not self.config.model.item_summary:
+            log.info("Skipping work item summary due to configuration setting")
+            return wi
+
         log.info("Summarizing work item %s", wi.id)
         item_prompt: str = self.config.prompts.item
-        prompt = f"{item_prompt}: {wi.title} item type: {wi.type} {wi.description} {wi.repro_steps} {wi.comments}"
-
+        prompt = f"{item_prompt}: {wi.title} item type: {wi.type} {wi.description} {wi.comments}"
         wi.summary = await self.config.model.summarise(prompt)
         return wi
 
     async def summarize_changelog(self, changelog: List[HierarchicalWorkItem]) -> str:
-        """Summarize a work item using the AI model."""
+        """Summarize the changelog."""
+        if not self.config.model.changelog_summary:
+            log.info("Skipping changelog summary due to configuration setting")
+            return ""
+
         software_prompt: str = self.config.prompts.summary
         software_brief: str = self.config.project.brief
         prompt = (
@@ -98,9 +104,8 @@ class Work:
         return self.all[work_item.id]
 
     async def get_item_by_id(self, item_id: Union[int, str]) -> HierarchicalWorkItem:
-        """Get a work item by its ID."""
+        """Get a work item by ID."""
         item = await self.client.get_work_item_by_id(int(item_id))
-
         return self.add(item)
 
     async def get_items_from_query(self, query_id: str) -> List[HierarchicalWorkItem]:
@@ -112,47 +117,57 @@ class Work:
         """Get work items with details."""
         log.info("Starting to fetch work items with details")
         start_time = time.time()
-
         items = await self.client.get_work_items_with_details(**kwargs)
-        self.item_ids = [item.id for item in items]
-        log.info("Fetched %s work items from client", len(items))
+        if self.platform.platform == Platform.GITHUB:
+            self.root_items = [self.add(item) for item in items]
+            for root_item in self.root_items:
+                for child in root_item.children:
+                    self.all[child.id] = child
+                    self.item_ids.append(child.id)
+        else:
+            self.item_ids = [item.id for item in items]
+            log.info("Fetched %s work items from client", len(items))
+            add_tasks = [self.get_item_by_id(item.id) for item in items]
+            await asyncio.gather(*add_tasks)
+            log.info("Added %s items to the work item collection", len(add_tasks))
+            await self._fetch_parents()
+            log.info("Fetched parent items")
+            self._create_other_parent()
+            log.info("Created 'Other' parent for orphaned items")
 
-        add_tasks = [self.get_item_by_id(item.id) for item in items]
-        await asyncio.gather(*add_tasks)
-        log.info("Added %s items to the work item collection", len(add_tasks))
+        if self.config.model.item_summary:
+            summary_tasks = [
+                self.summarize_work_item(item)
+                for item in self.all.values()
+                if item.id in self.item_ids and not isinstance(item, CommitInfo)
+            ]
+            await asyncio.gather(*summary_tasks)
 
-        await self._fetch_parents()
-        log.info("Fetched parent items")
-
-        self._create_other_parent()
-        log.info("Created 'Other' parent for orphaned items")
-
-        summary_tasks = [
-            self.summarize_work_item(item)
-            for item in self.all.values()
-            if item.id in self.item_ids
-        ]
-        await asyncio.gather(*summary_tasks)
-        hierarchy = Hierarchy(self.all)
-        self.root_items = hierarchy.root_items
-        self.by_type = hierarchy.by_type
-
+        if self.platform.platform == Platform.AZURE_DEVOPS:
+            hierarchy = Hierarchy(self.all)
+            self.root_items = hierarchy.root_items
+            self.by_type = hierarchy.by_type
+        else:
+            self.by_type = [
+                WorkItemGroup(
+                    type=root_item.type, icon=root_item.icon, items=root_item.children
+                )
+                for root_item in self.root_items
+            ]
         end_time = time.time()
         log.info(
             "Fetched and processed work items in %.2f seconds", end_time - start_time
         )
-
         return self.root_items
 
     async def _fetch_parents(self):
-        """Fetch parent items for all work items."""
+        if self.platform.platform != Platform.AZURE_DEVOPS:
+            return
+
         log.info("Starting to fetch parent items")
         start_time = time.time()
         items_to_fetch = set()
-
-        # Create a list of items to avoid modifying the dictionary during iteration
         items_list = list(self.all.values())
-
         for item in items_list:
             current_item = item
             while current_item.parent_id and current_item.parent_id not in self.all:
@@ -160,8 +175,6 @@ class Work:
                 current_item = await self.get_item_by_id(current_item.parent_id)
 
         log.info(f"Fetching {len(items_to_fetch)} parent items")
-
-        # Fetch parent items in batches
         batch_size = 10
         for i in range(0, len(items_to_fetch), batch_size):
             batch = list(items_to_fetch)[i : i + batch_size]
@@ -171,18 +184,10 @@ class Work:
         end_time = time.time()
         log.info(f"Fetched parent items in {end_time - start_time:.2f} seconds")
 
-    async def _fetch_parent_chain(
-        self, item: HierarchicalWorkItem, items_to_fetch: Set[int]
-    ):
-        """Fetch the parent chain for a work item."""
-        current_item = item
-        while current_item.parent_id and current_item.parent_id not in self.all:
-            items_to_fetch.add(current_item.parent_id)
-            parent = await self.get_item_by_id(current_item.parent_id)
-            current_item = parent
-
     def _create_other_parent(self):
-        """Create an 'Other' parent for orphaned items."""
+        if self.platform.platform == Platform.GITHUB:
+            return  # GitHub doesn't need an "Other" parent
+
         orphaned_items = [
             item for item in self.all.values() if item.orphan and item.id != 0
         ]
@@ -205,21 +210,19 @@ class Work:
                 item.parent_id = 0
 
     async def generate_ordered_work_items(self) -> List[WorkItemGroup]:
-        """Generate ordered work items."""
+        """Generate ordered work items"""
         log.info("Generating ordered work items")
         start_time = time.time()
-
-        if not self.by_type:  # Only fetch items if we haven't already
+        if not self.by_type:
             await self.get_items_with_details()
-
         end_time = time.time()
         log.info(f"Generated ordered work items in {end_time - start_time:.2f} seconds")
         return self.by_type
 
     def get_work_item_types(self) -> List[WorkItemType]:
-        """Get all work item types."""
+        """Get all work item types"""
         return self.client.get_all_work_item_types()
 
     def get_work_item_type(self, type_name: str) -> Optional[WorkItemType]:
-        """Get the work item type by name."""
+        """Get a work item type"""
         return self.client.get_work_item_type(type_name)

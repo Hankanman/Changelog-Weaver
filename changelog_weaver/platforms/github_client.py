@@ -3,15 +3,14 @@
 from typing import List, Optional
 from dataclasses import dataclass, field
 from github import Github
-
 from .platform_client import PlatformClient
-from ..typings import WorkItem, WorkItemType
+from ..typings import WorkItem, WorkItemType, HierarchicalWorkItem
 from .github_api import GitHubAPI
 
 
 @dataclass
 class GitHubConfig:
-    """This class holds the configuration for the GitHub API and creates the connection."""
+    """Configuration class for the GitHub platform."""
 
     access_token: str
     repo_name: str
@@ -22,7 +21,7 @@ class GitHubConfig:
 
 
 class GitHubPlatformClient(PlatformClient):
-    """GitHub platform client implementation."""
+    """GitHub platform client class."""
 
     def __init__(self, config: GitHubConfig):
         self.config = config
@@ -32,19 +31,17 @@ class GitHubPlatformClient(PlatformClient):
         await self.api.initialize()
 
     async def close(self):
-        """Close the API client."""
-        # GitHub API doesn't require explicit closing, but we implement the method
-        # to conform to the PlatformClient interface
+        # GitHub API doesn't require explicit closing
+        pass
 
     async def get_work_item_by_id(self, item_id: int) -> WorkItem:
         return await self.api.get_issue_by_number(item_id)
 
     async def get_work_items_from_query(self, query_id: str) -> List[WorkItem]:
-        # GitHub doesn't use query_id, so we'll ignore it
-        return await self.api.get_issues_from_query("")
+        return await self.api.get_issues_from_query(query_id)
 
-    async def get_work_items_with_details(self, **kwargs) -> List[WorkItem]:
-        return await self.api.get_issues_with_details(**kwargs)
+    async def get_work_items_with_details(self, **kwargs) -> List[HierarchicalWorkItem]:
+        return await self.api.get_all_work_items(**kwargs)
 
     def get_all_work_item_types(self) -> List[WorkItemType]:
         return self.api.get_all_issue_types()

@@ -2,9 +2,7 @@
 
 from typing import Tuple, Optional
 from urllib.parse import urlparse, unquote
-
 from ..typings import Project, Platform, PlatformInfo, Notes, ApiDetails
-
 from .base_config import BaseConfig, ENVVARS
 from .output import Output
 from .prompts import Prompts
@@ -35,9 +33,7 @@ class Config(BaseConfig):
         project: Optional[Project] = None,
     ):
         super().__init__()
-
         env = self.env.variables
-
         try:
             self.project = project or parse_project(
                 name=env.get(ENVVARS.SOLUTION_NAME, ""),
@@ -65,13 +61,11 @@ class Config(BaseConfig):
             changelog_summary=env.get(ENVVARS.GET_CHANGELOG_SUMMARY, "True").lower()
             == "true",
         )
-
         self.prompts = prompts or Prompts(
             self.project.name,
             self.project.brief,
             self.project.changelog.notes,
         )
-
         self.output = output or Output(
             folder=env.get(ENVVARS.OUTPUT_FOLDER, "Releases"),
             name=self.project.name,
@@ -101,7 +95,7 @@ def parse_project(
         parts = parsed_url.path.strip("/").split("/")
         if len(parts) < 2:
             raise ValueError(f"Invalid GitHub URL: {url}")
-        return parts[1], parts[0], f"https://github.com/{parts[0]}"
+        return f"{parts[0]}/{parts[1]}", parts[0], "https://api.github.com"
 
     def get_azure_devops_info() -> Tuple[str, str, str]:
         parts = parsed_url.path.strip("/").split("/")
@@ -144,6 +138,7 @@ def parse_project(
         query=query,
         access_token=access_token,
     )
+
     return Project(
         name=name,
         ref=project_name,
