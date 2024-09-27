@@ -4,7 +4,7 @@ from typing import List, Optional
 from dataclasses import dataclass, field
 from github import Github
 from .platform_client import PlatformClient
-from ..typings import WorkItem, WorkItemType, HierarchicalWorkItem
+from ..typings import WorkItem, WorkItemType, HierarchicalWorkItem, CommitInfo
 from .github_api import GitHubAPI
 
 
@@ -48,6 +48,9 @@ class GitHubPlatformClient(PlatformClient):
 
     def get_work_item_type(self, type_name: str) -> Optional[WorkItemType]:
         return self.api.get_issue_type(type_name)
+
+    async def get_commits(self, **kwargs) -> List[CommitInfo]:
+        return await self.api.get_commits(**kwargs)
 
     @property
     def root_work_item_type(self) -> str:

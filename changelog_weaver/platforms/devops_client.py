@@ -6,19 +6,18 @@ from azure.devops.connection import Connection
 from msrest.authentication import BasicAuthentication
 
 from .platform_client import PlatformClient
-from ..typings import WorkItem, WorkItemType
+from ..typings import WorkItem, WorkItemType, CommitInfo
 from .devops_api import DevOpsAPI, FIELDS
 
 
 @dataclass
 class DevOpsConfig:
-    """This class holds the configuration for the Azure DevOps API and creates the connection."""
-
     url: str
     org: str
     project: str
     query: str
     pat: str
+    repo_name: str
     fields: List[str] = field(default_factory=lambda: FIELDS)
     connection: Connection = field(init=False)
 
@@ -30,8 +29,6 @@ class DevOpsConfig:
 
 
 class DevOpsPlatformClient(PlatformClient):
-    """Azure DevOps platform client implementation."""
-
     def __init__(self, config: DevOpsConfig):
         self.config = config
         self.api = DevOpsAPI(config)
@@ -60,6 +57,9 @@ class DevOpsPlatformClient(PlatformClient):
 
     def get_work_item_type(self, type_name: str) -> Optional[WorkItemType]:
         return self.api.get_work_item_type(type_name)
+
+    async def get_commits(self, **kwargs) -> List[CommitInfo]:
+        return await self.api.get_commits(**kwargs)
 
     @property
     def root_work_item_type(self) -> str:

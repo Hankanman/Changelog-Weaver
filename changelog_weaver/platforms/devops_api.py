@@ -10,9 +10,10 @@ from azure.devops.v7_1.work_item_tracking.models import (
     WorkItemType as AzureWorkItemType,
 )
 from azure.devops.v7_1.core.models import TeamProjectReference
+from azure.devops.v7_1.git.models import GitQueryCommitsCriteria
 from azure.devops.exceptions import AzureDevOpsServiceError
 from ..utilities import format_date, clean_name, clean_string
-from ..typings import WorkItem, WorkItemType
+from ..typings import WorkItem, WorkItemType, CommitInfo
 from ..logger import get_logger
 
 log = get_logger(__name__)
@@ -44,12 +45,14 @@ class DevOpsAPI:
             self.wit_client = self.connection.clients.get_work_item_tracking_client()
             self.core_client = self.connection.clients.get_core_client()
             self.work_client = self.connection.clients.get_work_client()
+            self.git_client = self.connection.clients.get_git_client()
         except AzureDevOpsServiceError as e:
             log.error(f"Error initializing DevOps API: {str(e)}")
         self.work_item_types: Dict[str, WorkItemType] = {}
         self.root_work_item_type: str = ""
         self.session: Optional[aiohttp.ClientSession] = None
         self.executor = ThreadPoolExecutor(max_workers=5)
+        self.repo_name = config.repo_name
 
     async def initialize(self):
         """Initialize the API client"""
@@ -78,6 +81,58 @@ class DevOpsAPI:
             icon="https://tfsproduks1.visualstudio.com/_apis/wit/workItemIcons/icon_review?color=333333&v=2",
             color="#333333",
         )
+
+    async def get_commits(self, **kwargs) -> List[CommitInfo]:
+        """Fetch commits from the Azure DevOps repository."""
+        loop = asyncio.get_event_loop()
+
+        if not self.repo_name:
+            log.error("Repository name is not specified in the configuration")
+            return []
+
+        try:
+            repo = await loop.run_in_executor(
+                self.executor,
+                lambda: self.git_client.get_repository(
+                    self.repo_name, self.config.project
+                ),
+            )
+        except AzureDevOpsServiceError:
+            log.error(f"Repository '{self.repo_name}' not found in the project")
+            return []
+
+        # Create criteria for querying commits
+        criteria = GitQueryCommitsCriteria(
+            include_links=False,
+            skip=0,
+            top=100,  # Adjust this number as needed
+        )
+
+        # Add date filters if provided
+        if "since" in kwargs:
+            criteria.from_date = kwargs["since"]
+        if "until" in kwargs:
+            criteria.to_date = kwargs["until"]
+
+        commits = await loop.run_in_executor(
+            self.executor,
+            lambda: self.git_client.get_commits(
+                repository_id=repo.id,
+                search_criteria=criteria,
+                project=self.config.project,
+            ),
+        )
+
+        return [
+            CommitInfo(
+                sha=commit.commit_id,
+                message=commit.comment,
+                author=commit.author.name,
+                date=format_date(commit.author.date),
+                url=f"{repo.web_url}/commit/{commit.commit_id}",
+            )
+            for commit in commits
+        ]
 
     def _convert_azure_type(self, azure_type: AzureWorkItemType) -> WorkItemType:
         return WorkItemType(

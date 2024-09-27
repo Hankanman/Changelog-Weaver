@@ -4,10 +4,10 @@ from __future__ import annotations
 import asyncio
 import time
 import sys
-from typing import List, Union
+from typing import List
 from .configuration import Config
 from .work import Work
-from .typings import HierarchicalWorkItem, WorkItemGroup, WorkItem, Platform
+from .typings import HierarchicalWorkItem, WorkItemGroup, Platform
 from .logger import get_logger
 
 log = get_logger(__name__)
@@ -39,21 +39,28 @@ def iterate_and_print(
     config: Config,
     level: int = 2,
 ):
-    """Iterate through work items and print them in the changelog."""
+    """
+    Iterate through work items and print them in the changelog.
+
+    Args:
+        items_by_type (List[WorkItemGroup]): List of work item groups to process.
+        config (Config): Configuration object.
+        level (int): Header level for markdown formatting.
+    """
     for item_group in items_by_type:
         write_type_header(item_group, config, level)
-        if config.project.platform.platform == Platform.GITHUB:
+        if item_group.type == "Commit":
+            write_commit_items(item_group, config)
+        elif config.project.platform.platform == Platform.GITHUB:
             write_github_items(item_group, config)
         else:
             write_azure_devops_items(item_group, config, level + 1)
-        config.output.write("</div>\n\n")  # Close the div for each group
+        config.output.write("</div>\n\n")
 
 
 def write_github_items(item_group: WorkItemGroup, config: Config):
     """Write GitHub items to the changelog."""
-    if item_group.type == "Commits":
-        write_commit_items(item_group, config)
-    else:
+    if item_group.type != "Commits":
         for wi in item_group.items:
             write_github_item(wi, config)
 
@@ -85,17 +92,31 @@ def write_commit_items(
     item_group: WorkItemGroup,
     config: Config,
 ):
-    """Write commit items for GitHub."""
+    """
+    Write commit items.
+
+    This function takes a group of commit items and writes them to the output
+    in a formatted manner, including the commit hash, URL, and title.
+
+    Args:
+        item_group (WorkItemGroup): A group of commit items to be written.
+        config (Config): The configuration object for the output.
+    """
+    log.info(f"Processing {len(item_group.items)} commits")
     for commit in item_group.items:
+        log.debug(f"Processing commit: {commit}")
         if isinstance(commit, HierarchicalWorkItem) and hasattr(commit, "sha"):
-            sha = (
-                commit.sha[:7] if commit.sha else ""
-            )  # Shorten the commit hash to 7 characters
+            sha = commit.sha[:7] if commit.sha else "Unknown"
             title = commit.title if commit.title else ""
             url = commit.url if commit.url else "#"
-            icon_html = get_icon_html(GITHUB_ICONS["Commits"], "Commit Icon")
-            config.output.write(f"{icon_html} [{sha}]({url}) {title}\n")
+            icon_html = get_icon_html(GITHUB_ICONS["Commit"], "Commit Icon")
+            output_line = f"{icon_html} [{sha}]({url}) {title}\n"
+            log.debug(f"Writing commit line: {output_line}")
+            config.output.write(output_line)
+        else:
+            log.warning(f"Skipping invalid commit item: {commit}")
     config.output.write("\n")
+    log.info("Finished processing commits")
 
 
 def write_github_item(

@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from ..typings import WorkItem, WorkItemType
+from ..typings import WorkItem, WorkItemType, CommitInfo
 
 
 class PlatformClient(ABC):
@@ -35,6 +35,10 @@ class PlatformClient(ABC):
     @abstractmethod
     def get_work_item_type(self, type_name: str) -> Optional[WorkItemType]:
         """Get a work item type by name."""
+
+    @abstractmethod
+    async def get_commits(self, **kwargs) -> List[CommitInfo]:
+        """Get commits from the repository."""
 
     @property
     @abstractmethod

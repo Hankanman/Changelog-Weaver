@@ -42,6 +42,7 @@ class Config(BaseConfig):
                 url=env.get(ENVVARS.PROJECT_URL, ""),
                 query=env.get(ENVVARS.QUERY, ""),
                 access_token=env.get(ENVVARS.ACCESS_TOKEN, ""),
+                repo_name=env.get(ENVVARS.REPO_NAME, ""),
             )
         except ValueError as e:
             log.error("Error parsing project: %s", str(e))
@@ -71,11 +72,20 @@ class Config(BaseConfig):
             name=self.project.name,
             version=self.project.version,
         )
+        self.include_commits = (
+            env.get(ENVVARS.INCLUDE_COMMITS, "True").lower() == "true"
+        )
 
 
 # pylint: disable=too-many-arguments
 def parse_project(
-    name: str, version: str, brief: str, url: str, query: str, access_token: str
+    name: str,
+    version: str,
+    brief: str,
+    url: str,
+    query: str,
+    access_token: str,
+    repo_name: str,
 ) -> Project:
     """
     Extract platform information from the given URL and return a Project object.
@@ -137,6 +147,7 @@ def parse_project(
         base_url=base_url,
         query=query,
         access_token=access_token,
+        repo_name=repo_name,
     )
 
     return Project(

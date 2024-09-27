@@ -65,4 +65,6 @@ class WorkItem:
     tags: List[str] = field(default_factory=list)
     url: str = ""
     sha: Optional[str] = None
+    author: Optional[str] = None
+    date: Optional[str] = None
     comments: List[str] = field(default_factory=list)

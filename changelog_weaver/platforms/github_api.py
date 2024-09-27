@@ -49,7 +49,16 @@ class GitHubAPI:
     async def get_commits(
         self, since: Optional[str] = None, until: Optional[str] = None
     ) -> List[CommitInfo]:
-        """Fetch commits from the repository within the specified date range."""
+        """
+        Fetch commits from the repository within the specified date range.
+
+        Args:
+            since (Optional[str]): The start date for fetching commits.
+            until (Optional[str]): The end date for fetching commits.
+
+        Returns:
+            List[CommitInfo]: A list of CommitInfo objects representing the fetched commits.
+        """
         since_dt: Optional[datetime] = datetime.fromisoformat(since) if since else None
         until_dt: Optional[datetime] = datetime.fromisoformat(until) if until else None
         kwargs = {}
@@ -61,12 +70,18 @@ class GitHubAPI:
         return [await self._convert_to_commit_info(commit) for commit in commits]
 
     async def _convert_to_commit_info(self, commit: Commit) -> CommitInfo:
-        """Convert a GitHub Commit object to a CommitInfo object."""
+        """
+        Convert a GitHub Commit object to a CommitInfo object.
+
+        Args:
+            commit (Commit): The GitHub Commit object to convert.
+
+        Returns:
+            CommitInfo: The converted CommitInfo object.
+        """
         return CommitInfo(
-            sha=commit.sha,
-            message=commit.commit.message.lower().split("\n")[
-                0
-            ],  # Only take the first line
+            sha=str(commit.sha),  # Explicitly convert to string
+            message=commit.commit.message.split("\n")[0],  # Only take the first line
             author=commit.commit.author.name,
             date=format_date(commit.commit.author.date),
             url=commit.html_url,
@@ -107,11 +122,9 @@ class GitHubAPI:
         return [await self._convert_to_work_item(pr) for pr in pull_requests]
 
     async def get_all_work_items(self, **kwargs) -> List[HierarchicalWorkItem]:
-        """Get all work items including issues, pull requests, and commits."""
+        """Get all work items including issues and pull requests."""
         issues = await self.get_issues_with_details(**kwargs)
         pull_requests = await self.get_pull_requests(**kwargs)
-        commit_kwargs = {k: v for k, v in kwargs.items() if k in ["since", "until"]}
-        commits = await self.get_commits(**commit_kwargs)
 
         issues_root = HierarchicalWorkItem(
             id=-1,
@@ -127,7 +140,6 @@ class GitHubAPI:
                 if not hasattr(issue, "pull_request")
             ],
         )
-
         prs_root = HierarchicalWorkItem(
             id=-2,
             type="Pull Request",
@@ -139,36 +151,7 @@ class GitHubAPI:
             children=[HierarchicalWorkItem(**pr.__dict__) for pr in pull_requests],
         )
 
-        commits_root = HierarchicalWorkItem(
-            id=-3,
-            type="Commit",
-            state="N/A",
-            title="Commit",
-            icon="https://github.githubassets.com/images/modules/commits/commit.svg",
-            root=True,
-            orphan=False,
-            children=[
-                HierarchicalWorkItem(
-                    id=(
-                        int(commit.sha[:7], 16)
-                        if commit.sha[:7].isalnum()
-                        else hash(commit.sha[:7])
-                    ),
-                    type="Commit",
-                    state="N/A",
-                    title=commit.message,
-                    icon="https://github.githubassets.com/images/modules/commits/commit.svg",
-                    root=False,
-                    orphan=True,
-                    children=[],
-                    url=commit.url,
-                    sha=commit.sha[:7],
-                )
-                for commit in commits
-            ],
-        )
-
-        return [issues_root, prs_root, commits_root]
+        return [issues_root, prs_root]
 
     async def _convert_to_work_item(
         self, github_item: Union[Issue, PullRequest]

@@ -46,6 +46,7 @@ class Work:
                     project=config.project.ref,
                     query=config.project.platform.query,
                     pat=config.project.platform.access_token,
+                    repo_name=config.project.platform.repo_name,
                 )
             )
         if self.platform.platform == Platform.GITHUB:
@@ -70,11 +71,27 @@ class Work:
         await self.client.close()
 
     async def summarize_work_item(self, wi: WorkItem) -> WorkItem:
-        """Summarize a work item."""
+        """
+        Summarize a work item.
+
+        This method skips summarization for commit items and only processes
+        other types of work items if summarization is enabled in the configuration.
+
+        Args:
+            wi (WorkItem): The work item to summarize.
+
+        Returns:
+            WorkItem: The work item, potentially with a new summary.
+        """
+        # Skip summarization for commit items
+        if wi.type.lower() == "commit":
+            return wi
+
         if not self.config.model.item_summary:
             log.info("Skipping work item summary due to configuration setting")
             return wi
-        log.info("Summarizing work item %s", wi.id)
+
+        log.info(f"Summarizing work item {wi.id}")
         item_prompt: str = self.config.prompts.item
         prompt = f"{item_prompt}: {wi.title} item type: {wi.type} {wi.description} {wi.comments}"
         wi.summary = await self.config.model.summarise(prompt)
@@ -116,13 +133,14 @@ class Work:
         log.info("Starting to fetch work items with details")
         start_time = time.time()
         items = await self.client.get_work_items_with_details(**kwargs)
+
         if self.platform.platform == Platform.GITHUB:
             self.root_items = [self.add(item) for item in items]
             for root_item in self.root_items:
                 for child in root_item.children:
                     self.all[child.id] = child
                     self.item_ids.append(child.id)
-        else:
+        else:  # Azure DevOps
             self.item_ids = [item.id for item in items]
             log.info("Fetched %s work items from client", len(items))
             add_tasks = [self.get_item_by_id(item.id) for item in items]
@@ -133,11 +151,32 @@ class Work:
             self._create_other_parent()
             log.info("Created 'Other' parent for orphaned items")
 
+        # Handle commits for both platforms
+        if self.config.include_commits:
+            commits = await self.client.get_commits(**kwargs)
+            commit_items = [
+                self._convert_commit_to_work_item(commit) for commit in commits
+            ]
+            commits_root = HierarchicalWorkItem(
+                id=-3,
+                type="Commit",
+                state="N/A",
+                title="Commits",
+                icon="https://github.githubassets.com/images/modules/commits/commit.svg",
+                root=True,
+                orphan=False,
+                children=commit_items,
+            )
+            self.root_items.append(commits_root)
+            for commit in commit_items:
+                self.all[commit.id] = commit
+                self.item_ids.append(commit.id)
+
         if self.config.model.item_summary:
             summary_tasks = [
                 self.summarize_work_item(item)
                 for item in self.all.values()
-                if item.id in self.item_ids and not isinstance(item, CommitInfo)
+                if item.id in self.item_ids and item.type.lower() != "commit"
             ]
             await asyncio.gather(*summary_tasks)
 
@@ -158,6 +197,22 @@ class Work:
             "Fetched and processed work items in %.2f seconds", end_time - start_time
         )
         return self.root_items
+
+    def _convert_commit_to_work_item(self, commit: CommitInfo) -> HierarchicalWorkItem:
+        return HierarchicalWorkItem(
+            id=hash(commit.sha),  # Use hash of SHA as ID
+            type="Commit",
+            state="N/A",
+            title=commit.message,
+            icon="https://github.githubassets.com/images/modules/commits/commit.svg",
+            root=False,
+            orphan=True,
+            url=commit.url,
+            sha=commit.sha,
+            author=commit.author,
+            date=commit.date,
+            children=[],  # Commits don't have children
+        )
 
     async def _fetch_parents(self):
         if self.platform.platform != Platform.AZURE_DEVOPS:

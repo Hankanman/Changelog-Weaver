@@ -23,6 +23,7 @@ class PlatformInfo:
     base_url: str
     query: str
     access_token: str
+    repo_name: str
 
 
 @dataclass
