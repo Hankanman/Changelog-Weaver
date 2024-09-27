@@ -10,8 +10,11 @@ from ..typings import WorkItem, WorkItemType, CommitInfo
 from .devops_api import DevOpsAPI, FIELDS
 
 
+# pylint: disable=too-many-instance-attributes
 @dataclass
 class DevOpsConfig:
+    """Configuration class for the Azure DevOps platform."""
+
     url: str
     org: str
     project: str
@@ -29,6 +32,8 @@ class DevOpsConfig:
 
 
 class DevOpsPlatformClient(PlatformClient):
+    """Azure DevOps platform client class."""
+
     def __init__(self, config: DevOpsConfig):
         self.config = config
         self.api = DevOpsAPI(config)

@@ -78,6 +78,7 @@ class Config(BaseConfig):
 
 
 # pylint: disable=too-many-arguments
+# pylint: disable=too-many-locals
 def parse_project(
     name: str,
     version: str,

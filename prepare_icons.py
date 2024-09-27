@@ -1,8 +1,8 @@
 """Script to download, modify, and save SVG icons for the changelog."""
 
-import requests
 from pathlib import Path
 import xml.etree.ElementTree as ET
+import requests
 
 # Define icon URLs and colors
 ICONS = {
@@ -27,7 +27,7 @@ ICONS = {
 
 def download_svg(url: str) -> str:
     """Download SVG content from a URL."""
-    response = requests.get(url)
+    response = requests.get(url, timeout=10)
     response.raise_for_status()
     return response.text
 
@@ -54,6 +54,7 @@ def save_svg(content: str, filename: str):
 
 
 def main():
+    """Main function to download, modify, and save SVG icons."""
     for name, info in ICONS.items():
         svg_content = download_svg(info["url"])
         modified_svg = modify_svg_color(svg_content, info["color"])
