@@ -105,7 +105,25 @@ This will fetch work items based on the configuration and generate a Markdown fi
 You can integrate Changelog Weaver into your CI/CD pipeline using the provided Azure DevOps YAML configuration or a GitHub Actions workflow:
 
 - **Azure DevOps**: Copy the `Changelog-Weaver-Pipeline-Azure.yaml` from the `pipelines/` directory to your project's pipeline configuration.
-- **GitHub Actions**: Adjust the provided GitHub Actions YAML to suit your repository setup.
+- **GitHub Actions**: Copy the `Changelog-Weaver-Action.yml` from the `pipelines/` directory. Adjust the provided GitHub Actions YAML to suit your repository setup.
+
+## Automated Changelog Generation with GitHub Actions
+
+This project includes a GitHub Actions workflow that automatically generates a changelog when a new release is created. Here's how it works:
+
+1. When you create a new release in your GitHub repository, the workflow is triggered.
+2. It sets up a Python environment and installs the necessary dependencies.
+3. It creates a `.env` file with the required configuration, using repository secrets and release information.
+4. It runs the Changelog Weaver to generate the release notes.
+5. The generated changelog is uploaded as an artifact and attached to the release.
+
+To use this workflow:
+
+1. Ensure you have set up the `GPT_API_KEY` secret in your repository settings. This should contain your OpenAI API key.
+2. Create a new release in your GitHub repository.
+3. The workflow will automatically run and attach the generated changelog to the release.
+
+You can customize the workflow by editing the `.github/workflows/generate-changelog.yml` file in your repository.
 
 ## Customization
 
