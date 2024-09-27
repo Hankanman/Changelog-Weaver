@@ -269,7 +269,9 @@ class DevOpsAPI:
                 if fields.get("System.Tags")
                 else []
             ),
-            url=azure_work_item.url.replace("_apis/wit/workitems", "_workitems/edit"),
+            url=azure_work_item.url.lower().replace(
+                "_apis/wit/workitems", "_workitems/edit"
+            ),
             comments=await self._get_comments(azure_work_item.id),
         )
 

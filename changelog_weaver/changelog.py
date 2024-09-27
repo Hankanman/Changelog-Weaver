@@ -59,8 +59,14 @@ def iterate_and_print(
 
 
 def write_github_items(item_group: WorkItemGroup, config: Config):
-    """Write GitHub items to the changelog."""
-    if item_group.type != "Commits":
+    """
+    Write GitHub items to the changelog.
+
+    Args:
+        item_group (WorkItemGroup): A group of GitHub items to be written.
+        config (Config): The configuration object for the output.
+    """
+    if item_group.type != "Commit":
         for wi in item_group.items:
             write_github_item(wi, config)
 
@@ -93,10 +99,7 @@ def write_commit_items(
     config: Config,
 ):
     """
-    Write commit items.
-
-    This function takes a group of commit items and writes them to the output
-    in a formatted manner, including the commit hash, URL, and title.
+    Write commit items to the changelog.
 
     Args:
         item_group (WorkItemGroup): A group of commit items to be written.

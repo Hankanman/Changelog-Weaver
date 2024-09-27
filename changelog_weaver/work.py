@@ -129,11 +129,15 @@ class Work:
         return [self.add(item) for item in items]
 
     async def get_items_with_details(self, **kwargs) -> List[HierarchicalWorkItem]:
-        """Get work items with details."""
+        """
+        Get work items with details from the platform.
+
+        Returns:
+            List[HierarchicalWorkItem]: A list of work items with their details.
+        """
         log.info("Starting to fetch work items with details")
         start_time = time.time()
         items = await self.client.get_work_items_with_details(**kwargs)
-
         if self.platform.platform == Platform.GITHUB:
             self.root_items = [self.add(item) for item in items]
             for root_item in self.root_items:
@@ -150,27 +154,6 @@ class Work:
             log.info("Fetched parent items")
             self._create_other_parent()
             log.info("Created 'Other' parent for orphaned items")
-
-        # Handle commits for both platforms
-        if self.config.include_commits:
-            commits = await self.client.get_commits(**kwargs)
-            commit_items = [
-                self._convert_commit_to_work_item(commit) for commit in commits
-            ]
-            commits_root = HierarchicalWorkItem(
-                id=-3,
-                type="Commit",
-                state="N/A",
-                title="Commits",
-                icon="https://github.githubassets.com/images/modules/commits/commit.svg",
-                root=True,
-                orphan=False,
-                children=commit_items,
-            )
-            self.root_items.append(commits_root)
-            for commit in commit_items:
-                self.all[commit.id] = commit
-                self.item_ids.append(commit.id)
 
         if self.config.model.item_summary:
             summary_tasks = [
@@ -192,6 +175,8 @@ class Work:
                 for root_item in self.root_items
             ]
 
+        log.info(f"Total root items: {len(self.root_items)}")
+        log.info(f"Total by_type groups: {len(self.by_type)}")
         end_time = time.time()
         log.info(
             "Fetched and processed work items in %.2f seconds", end_time - start_time
@@ -199,12 +184,21 @@ class Work:
         return self.root_items
 
     def _convert_commit_to_work_item(self, commit: CommitInfo) -> HierarchicalWorkItem:
+        """
+        Convert a CommitInfo object to a HierarchicalWorkItem.
+
+        Args:
+            commit (CommitInfo): The commit information to convert.
+
+        Returns:
+            HierarchicalWorkItem: The converted work item representing the commit.
+        """
         return HierarchicalWorkItem(
             id=hash(commit.sha),  # Use hash of SHA as ID
             type="Commit",
             state="N/A",
             title=commit.message,
-            icon="https://github.githubassets.com/images/modules/commits/commit.svg",
+            icon="https://raw.githubusercontent.com/Hankanman/Changelog-Weaver/refs/heads/main/assets/commit-icon.svg",
             root=False,
             orphan=True,
             url=commit.url,
@@ -260,11 +254,35 @@ class Work:
                 item.parent_id = 0
 
     async def generate_ordered_work_items(self) -> List[WorkItemGroup]:
-        """Generate ordered work items"""
+        """
+        Generate ordered work items including commits if specified.
+
+        Returns:
+            List[WorkItemGroup]: A list of ordered work item groups.
+        """
         log.info("Generating ordered work items")
         start_time = time.time()
         if not self.by_type:
             await self.get_items_with_details()
+
+        # Handle commits for both platforms
+        if self.config.include_commits and not any(
+            group.type == "Commit" for group in self.by_type
+        ):
+            log.info("Fetching commits...")
+            commits = await self.client.get_commits()
+            log.info(f"Retrieved {len(commits)} commits")
+            commit_items = [
+                self._convert_commit_to_work_item(commit) for commit in commits
+            ]
+            commits_group = WorkItemGroup(
+                type="Commit",
+                icon="https://raw.githubusercontent.com/Hankanman/Changelog-Weaver/refs/heads/main/assets/commit-icon.svg",
+                items=commit_items,
+            )
+            self.by_type.append(commits_group)
+            log.info(f"Added commits group with {len(commit_items)} commits")
+
         end_time = time.time()
         log.info(f"Generated ordered work items in {end_time - start_time:.2f} seconds")
         return self.by_type
