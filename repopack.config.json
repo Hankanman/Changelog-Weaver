@@ -1,0 +1,26 @@
+{
+  "output": {
+    "filePath": "Changelog-Weaver-Code.xml",
+    "style": "xml",
+    "headerText": "This is a repo pack file for the Changelog Weaver Code repository.",
+    "removeComments": false,
+    "removeEmptyLines": true,
+    "showLineNumbers": false,
+    "topFilesLength": 50
+  },
+  "include": ["**/*"],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "docs",
+      "repopack.config.json",
+      "Changelog-Weaver-Code.xml",
+      "**.svg",
+      ".gitignore",
+      "**/.gitignore",
+      "**/.temp",
+      ".venv/"
+    ]
+  }
+}

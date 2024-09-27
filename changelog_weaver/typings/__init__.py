@@ -1,6 +1,6 @@
 """ Typings for the changelog_weaver package. """
 
-from .base_types import WorkItem, WorkItemType, Platform, ApiDetails
+from .base_types import WorkItem, WorkItemType, Platform, ApiDetails, CommitInfo
 from .complex_types import (
     HierarchicalWorkItem,
     PlatformInfo,
@@ -19,4 +19,5 @@ __all__ = [
     "Notes",
     "Project",
     "ApiDetails",
+    "CommitInfo",
 ]
