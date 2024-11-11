@@ -165,5 +165,6 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
-repopack-output.txt
+repomix-output.txt
 Changelog-Weaver-Code.xml
+Changelog-Weaver-Code.txt
