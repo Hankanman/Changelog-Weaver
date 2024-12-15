@@ -43,6 +43,9 @@ class Config(BaseConfig):
                 query=env.get(ENVVARS.QUERY, ""),
                 access_token=env.get(ENVVARS.ACCESS_TOKEN, ""),
                 repo_name=env.get(ENVVARS.REPO_NAME, ""),
+                branch=env.get(ENVVARS.BRANCH, ""),
+                from_tag=env.get(ENVVARS.FROM_TAG, ""),
+                to_tag=env.get(ENVVARS.TO_TAG, ""),
             )
         except ValueError as e:
             log.error("Error parsing project: %s", str(e))
@@ -87,12 +90,18 @@ def parse_project(
     query: str,
     access_token: str,
     repo_name: str,
+    branch: str = "",
+    from_tag: str = "",
+    to_tag: str = "",
 ) -> Project:
     """
     Extract platform information from the given URL and return a Project object.
 
     Args:
         url (str): The URL to analyze.
+        branch (str): The branch to use for fetching commits.
+        from_tag (str): The starting tag for fetching commits.
+        to_tag (str): The ending tag for fetching commits.
 
     Returns:
         Project: An object containing the project name, URL, and platform information.
@@ -149,6 +158,9 @@ def parse_project(
         query=query,
         access_token=access_token,
         repo_name=repo_name,
+        branch=branch,
+        from_tag=from_tag,
+        to_tag=to_tag,
     )
 
     return Project(

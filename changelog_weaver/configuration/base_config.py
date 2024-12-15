@@ -31,6 +31,9 @@ class ENVVARS(Enum):
     MODEL = "MODEL"
     OUTPUT_FOLDER = "OUTPUT_FOLDER"
     LOG_LEVEL = "LOG_LEVEL"
+    BRANCH = "BRANCH"
+    FROM_TAG = "FROM_TAG"
+    TO_TAG = "TO_TAG"
 
 
 class BaseConfig:

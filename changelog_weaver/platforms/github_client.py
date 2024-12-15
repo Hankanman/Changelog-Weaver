@@ -14,6 +14,9 @@ class GitHubConfig:
 
     access_token: str
     repo_name: str
+    branch: Optional[str] = None
+    from_tag: Optional[str] = None
+    to_tag: Optional[str] = None
     client: Github = field(init=False)
 
     def __post_init__(self):
@@ -50,6 +53,11 @@ class GitHubPlatformClient(PlatformClient):
         return self.api.get_issue_type(type_name)
 
     async def get_commits(self, **kwargs) -> List[CommitInfo]:
+        # Add tag information from platform config if not provided in kwargs
+        if "from_tag" not in kwargs and self.config.from_tag:
+            kwargs["from_tag"] = self.config.from_tag
+        if "to_tag" not in kwargs and self.config.to_tag:
+            kwargs["to_tag"] = self.config.to_tag
         return await self.api.get_commits(**kwargs)
 
     @property

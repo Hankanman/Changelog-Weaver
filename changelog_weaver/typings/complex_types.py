@@ -3,7 +3,7 @@
 from typing import List, TypeVar, Generic
 from dataclasses import dataclass, field
 
-from .base_types import WorkItem, Platform
+from .base_types import WorkItem, PlatformInfo
 
 
 @dataclass
@@ -12,18 +12,6 @@ class HierarchicalWorkItem(WorkItem):
 
     children: List["HierarchicalWorkItem"] = field(default_factory=list)
     children_by_type: List["WorkItemGroup"] = field(default_factory=list)
-
-
-@dataclass
-class PlatformInfo:
-    """Represents the platform information."""
-
-    platform: Platform
-    organization: str
-    base_url: str
-    query: str
-    access_token: str
-    repo_name: str
 
 
 @dataclass

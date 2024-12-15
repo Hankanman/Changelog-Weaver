@@ -65,6 +65,12 @@ MODEL=gpt-4o-mini
 OUTPUT_FOLDER=Releases
 # The logging level for the application.
 LOG_LEVEL=INFO
+# The branch to use for fetching commits (optional)
+BRANCH=main
+# The starting tag for fetching commits (optional)
+FROM_TAG=v1.0.0
+# The ending tag for fetching commits (optional)
+TO_TAG=v1.1.0
 EOL
 fi
 

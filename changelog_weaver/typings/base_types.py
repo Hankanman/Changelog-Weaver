@@ -68,3 +68,18 @@ class WorkItem:
     author: Optional[str] = None
     date: Optional[str] = None
     comments: List[str] = field(default_factory=list)
+
+
+@dataclass
+class PlatformInfo:
+    """Represents the platform information."""
+
+    platform: Platform
+    organization: str
+    base_url: str
+    query: str
+    access_token: str
+    repo_name: str
+    branch: str = ""
+    from_tag: str = ""
+    to_tag: str = ""

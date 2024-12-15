@@ -1,6 +1,6 @@
 """GitHub API module for interacting with GitHub issues and pull requests."""
 
-from typing import List, Optional, Dict, Union
+from typing import List, Optional, Dict, Union, Tuple
 from datetime import datetime
 from github import Github
 from github.Issue import Issue
@@ -9,6 +9,9 @@ from github.Repository import Repository
 from github.Commit import Commit
 from ..utilities.utils import clean_string, format_date
 from ..typings import WorkItem, WorkItemType, HierarchicalWorkItem, CommitInfo
+from ..logger import get_logger
+
+log = get_logger(__name__)
 
 
 class GitHubAPI:
@@ -19,6 +22,13 @@ class GitHubAPI:
         self.config = config
         self.client: Github = config.client
         self.repo: Repository = self.client.get_repo(self.config.repo_name)
+        self.branch: Optional[str] = config.branch
+        self.from_tag: Optional[str] = config.from_tag
+        self.to_tag: Optional[str] = config.to_tag
+        log.info(
+            f"GitHubAPI initialized with branch: {self.branch}, "
+            f"from_tag: {self.from_tag}, to_tag: {self.to_tag}"
+        )
         self.issue_types: Dict[str, WorkItemType] = {}
 
     async def initialize(self):
@@ -47,27 +57,122 @@ class GitHubAPI:
         )
 
     async def get_commits(
-        self, since: Optional[str] = None, until: Optional[str] = None
+        self,
+        since: Optional[str] = None,
+        until: Optional[str] = None,
+        from_tag: Optional[str] = None,
+        to_tag: Optional[str] = None,
     ) -> List[CommitInfo]:
         """
-        Fetch commits from the repository within the specified date range.
-
-        Args:
-            since (Optional[str]): The start date for fetching commits.
-            until (Optional[str]): The end date for fetching commits.
-
-        Returns:
-            List[CommitInfo]: A list of CommitInfo objects representing the fetched commits.
+        Fetch commits from the repository within the specified date range and/or between tags.
         """
-        since_dt: Optional[datetime] = datetime.fromisoformat(since) if since else None
-        until_dt: Optional[datetime] = datetime.fromisoformat(until) if until else None
+        # Build kwargs for get_commits
         kwargs = {}
-        if since_dt:
-            kwargs["since"] = since_dt
-        if until_dt:
-            kwargs["until"] = until_dt
+        if since:
+            kwargs["since"] = datetime.fromisoformat(since)
+        if until:
+            kwargs["until"] = datetime.fromisoformat(until)
+
+        # Use the configured branch if available
+        branch = self.branch or "main"
+        kwargs["sha"] = branch
+
+        log.info(f"Fetching commits from branch: {branch}")
+        if from_tag and to_tag:
+            log.info(f"Filtering commits between tags: {from_tag} and {to_tag}")
+
+            try:
+                # Fetch all tags
+                tags = self.repo.get_tags()
+                tag_dict = {tag.name: tag.commit.sha for tag in tags}
+
+                # Get commit SHAs for the tags
+                from_commit = tag_dict.get(from_tag)
+                to_commit = tag_dict.get(to_tag)
+
+                if not from_commit or not to_commit:
+                    missing_tag = from_tag if not from_commit else to_tag
+                    log.error(f"Tag not found: {missing_tag}")
+                    return []
+
+                log.info(f"From commit SHA: {from_commit}")
+                log.info(f"To commit SHA: {to_commit}")
+
+                # Get the comparison
+                comparison = self.repo.compare(from_commit, to_commit)
+
+                log.info(f"Found {comparison.total_commits} commits between tags")
+
+                # No need to filter by branch as comparison is between specified commits
+                commits_list = list(comparison.commits)
+                # Reverse the commits list to have the most recent commits first
+                commits_list.reverse()
+                return [
+                    await self._convert_to_commit_info(commit)
+                    for commit in commits_list
+                ]
+
+            except Exception as e:
+                log.error(f"Error filtering commits by tags: {str(e)}")
+                return []
+
+        # If no tags specified or tag filtering failed, get commits normally
         commits = self.repo.get_commits(**kwargs)
         return [await self._convert_to_commit_info(commit) for commit in commits]
+
+    async def _get_commit_range(
+        self, from_tag: Optional[str], to_tag: Optional[str]
+    ) -> Optional[Tuple[str, str]]:
+        """
+        Get the commit range between two tags.
+
+        Args:
+            from_tag (Optional[str]): The starting tag.
+            to_tag (Optional[str]): The ending tag.
+
+        Returns:
+            Optional[Tuple[str, str]]: A tuple of (from_commit_sha, to_commit_sha) or None if tags not specified.
+        """
+        if not (from_tag and to_tag):
+            return None
+
+        try:
+            from_ref = self.repo.get_git_ref(f"tags/{from_tag}")
+            to_ref = self.repo.get_git_ref(f"tags/{to_tag}")
+
+            # Get the commit SHA for each tag
+            from_sha = from_ref.object.sha
+            to_sha = to_ref.object.sha
+
+            return (from_sha, to_sha)
+        except Exception as e:
+            log.warning(
+                f"Error getting commit range for tags {from_tag} to {to_tag}: {str(e)}"
+            )
+            return None
+
+    def _is_commit_in_range(self, commit_sha: str, from_sha: str, to_sha: str) -> bool:
+        """
+        Check if a commit is within the specified range.
+
+        Args:
+            commit_sha (str): The SHA of the commit to check.
+            from_sha (str): The starting commit SHA.
+            to_sha (str): The ending commit SHA.
+
+        Returns:
+            bool: True if the commit is in range, False otherwise.
+        """
+        try:
+            # Get the comparison between the commits
+            comparison = self.repo.compare(from_sha, to_sha)
+
+            # Check if the commit is in the comparison's commits
+            commit_shas = [commit.sha for commit in comparison.commits]
+            return commit_sha in commit_shas
+        except Exception as e:
+            log.warning(f"Error checking commit range for {commit_sha}: {str(e)}")
+            return False
 
     async def _convert_to_commit_info(self, commit: Commit) -> CommitInfo:
         """

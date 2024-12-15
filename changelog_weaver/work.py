@@ -50,10 +50,17 @@ class Work:
                 )
             )
         if self.platform.platform == Platform.GITHUB:
+            log.info(
+                f"Creating GitHub client with branch: {config.project.platform.branch}, "
+                f"from_tag: {config.project.platform.from_tag}, to_tag: {config.project.platform.to_tag}"
+            )
             return GitHubPlatformClient(
                 GitHubConfig(
                     access_token=config.project.platform.access_token,
                     repo_name=config.project.ref,
+                    branch=config.project.platform.branch,
+                    from_tag=config.project.platform.from_tag,
+                    to_tag=config.project.platform.to_tag,
                 )
             )
         raise ValueError(f"Unsupported platform: {self.platform}")
