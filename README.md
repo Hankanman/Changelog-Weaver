@@ -3,6 +3,8 @@
 [![Pylint](https://github.com/hankanman/Changelog-Weaver/actions/workflows/pylint.yml/badge.svg)](https://github.com/hankanman/Changelog-Weaver/actions/workflows/pylint.yml)
 [![Python package](https://github.com/Hankanman/Changelog-Weaver/actions/workflows/python-package.yml/badge.svg)](https://github.com/Hankanman/Changelog-Weaver/actions/workflows/python-package.yml)
 
+[![Buy me a coffee][buymeacoffee-shield]][buymeacoffee]
+
 Changelog Weaver is a powerful tool designed to automatically generate comprehensive release notes for projects hosted on Azure DevOps and GitHub. It leverages the capabilities of GPT (Generative Pre-trained Transformer) to summarize work items and produce professional, easy-to-read release notes in Markdown format.
 
 ## Features
@@ -144,3 +146,6 @@ Contributions are welcome! Please fork the repository, make your changes, and su
 ## License
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
+
+[buymeacoffee-shield]: https://www.buymeacoffee.com/assets/img/guidelines/download-assets-sm-2.svg
+[buymeacoffee]: https://buymeacoffee.com/sebburrell
